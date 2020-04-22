@@ -273,7 +273,20 @@ int work(const struct Options &options, const char *mask_arg) {
     ml.setPosition(start_idx);
     
     size_t w;
-    for (uint64_t i = 0; i < todo; i++) {
+    // first word, use MaskList::getFirstWord
+    if (todo >= 1) {
+        ml.getFirstWord(word.data(), &w);
+        word[w] = delim;
+        if (w + delim_width > size_t(buffer_end - buffer_p)) {
+            printer.print(buffer.data(), buffer_p - buffer.data(), outfile);
+            buffer_p = buffer.data();
+        }
+        
+        memcpy(buffer_p, word.data(), sizeof(T) * (w + delim_width));
+        buffer_p += w + delim_width;
+    }
+    // following words, use MaskList::getNext
+    for (uint64_t i = 1; i < todo; i++) {
         ml.getNext(word.data(), &w);
         word[w] = delim;
         if (w + delim_width > size_t(buffer_end - buffer_p)) {

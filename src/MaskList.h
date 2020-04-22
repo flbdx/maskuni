@@ -30,10 +30,9 @@ class MaskList
     typename decltype(m_masks)::iterator m_current_mask;
     uint64_t m_mask_rem;
     size_t m_max_width;
-    bool m_init_mask;
 
 public:
-    MaskList() : m_masks(), m_len(0), m_current_mask(m_masks.begin()), m_mask_rem(0), m_max_width(0), m_init_mask(true) {}
+    MaskList() : m_masks(), m_len(0), m_current_mask(m_masks.begin()), m_mask_rem(0), m_max_width(0) {}
 
     void pushMask(const Mask<T> &mask)
     {
@@ -86,36 +85,33 @@ public:
             }
             o -= s;
         }
-        m_init_mask = true;
+    }
+    
+    inline __attribute__((always_inline)) bool getFirstWord(T *w, size_t *width) {
+        // our mask can't be empty if properly initialized, get current word
+        m_current_mask->getCurrent(w); // first call for this mask, initialize the whole word
+        *width = m_current_mask->getWidth();
+        m_mask_rem--;
+        return m_mask_rem == 0;
     }
     
     inline __attribute__((always_inline)) bool getNext(T *w, size_t *width) {
-        if (m_init_mask) { // first call to getNext
-            // our mask can't be empty if properly initialized, get current word
+        if (m_mask_rem == 0) { // load next mask
+            m_current_mask++;
+            if (m_current_mask == m_masks.end()) {
+                m_current_mask = m_masks.begin();
+            }
+            m_mask_rem = m_current_mask->getLen();
             m_current_mask->getCurrent(w); // first call for this mask, initialize the whole word
             *width = m_current_mask->getWidth();
-            m_init_mask = false;
             m_mask_rem--;
-            return m_mask_rem == 0;
+            return false;
         }
         else {
-            if (m_mask_rem == 0) { // load next mask
-                m_current_mask++;
-                if (m_current_mask == m_masks.end()) {
-                    m_current_mask = m_masks.begin();
-                }
-                m_mask_rem = m_current_mask->getLen();
-                m_current_mask->getCurrent(w); // first call for this mask, initialize the whole word
-                *width = m_current_mask->getWidth();
-                m_mask_rem--;
-                return false;
-            }
-            else {
-                 m_current_mask->getNext(w); // update the word
-                 *width = m_current_mask->getWidth();
-                 m_mask_rem--;
-                 return m_mask_rem == 0;
-            }
+            m_current_mask->getNext(w); // update the word
+            *width = m_current_mask->getWidth();
+            m_mask_rem--;
+            return m_mask_rem == 0;
         }
     }
 };

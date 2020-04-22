@@ -26,7 +26,29 @@
 
 namespace Maskgen {
 
+/**
+ * @brief Read an 8-bits mask list from a file or from the mask given by \a spec
+ * If a file named \a spec exists then the masks are read from the file
+ * Otherwise the content of the mask list is the single mask created from the string \a spec
+ * 
+ * @param spec mask file or mask string
+ * @param charsets known charsets
+ * @param ml output mask list
+ * @return false an error occured
+ */
 bool readMaskListAscii(const char *spec, const CharsetMapAscii &charsets, MaskList<char> &ml);
+/**
+ * @brief Read an unicode mask list from a file or from the mask given by \a spec
+ * If a file named \a spec exists then the masks are read from the file
+ * Otherwise the content of the mask list is the single mask created from the string \a spec
+ * 
+ * The content of the file or the string \a spec must be UTF-8 encoded
+ * 
+ * @param spec mask file or mask string
+ * @param charsets known charsets
+ * @param ml output mask list
+ * @return false an error occured
+ */
 bool readMaskListUtf8(const char *spec, const CharsetMapUnicode &charsets, MaskList<uint32_t> &ml);
 
 }

@@ -23,10 +23,15 @@
 
 namespace Maskgen {
 
+/**
+ * @brief Describe a builtin charset or a user defined charset
+ * @param T Either char or 8-bit charsets or uint32_t for unicode codepoints
+ * 
+ */
 template<typename T>
 struct DefaultCharset {
-    std::vector<T> cset;
-    bool final;
+    std::vector<T> cset;    /*!< charset */
+    bool final;             /*!< true if the charset should not be further expanded */
     
     DefaultCharset() : cset(), final(true) {}
     
@@ -38,17 +43,74 @@ struct DefaultCharset {
     }
 };
 
+/**
+ * @brief A map charset name -> charset
+ * TODO: can we have non 8 bits charset names ? Right now it's enforced by the CLI arguments parsing
+ */
 template<typename T> using CharsetMap = std::map<T, DefaultCharset<T>>;
 typedef CharsetMap<char> CharsetMapAscii;
 typedef CharsetMap<uint32_t> CharsetMapUnicode;
 
+/**
+ * @brief Expand an 8-bit charset replacing all the charset references (?X) by their values, then unify the charset
+ * This function is protected against recursive charsets definition. The \a charset_name
+ * parameter is used for this protection
+ * 
+ * @param charset Charset to expand
+ * @param default_charsets Currently defined charsets
+ * @param charset_name This charset name
+ * @return Expanded and "uniquified"" charset or empty vector if the charset is invalid
+ */
 std::vector<char> expandCharsetAscii(const std::vector<char> &charset, const CharsetMapAscii &default_charsets, char charset_name);
+
+/**
+ * @brief Expand an unicode codepoint charset replacing all the charset references (?X) by their values, then unify the charset
+ * This function is protected against recursive charsets definition. The \a charset_name
+ * parameter is used for this protection
+ * 
+ * @param charset Charset to expand
+ * @param default_charsets Currently defined charsets
+ * @param charset_name This charset name
+ * @return Expanded and "uniquified"" charset or empty vector if the charset is invalid
+ */
 std::vector<uint32_t> expandCharsetUnicode(const std::vector<uint32_t> &charset, const CharsetMapUnicode &default_charsets, uint32_t charset_name);
 
+/**
+ * @brief Init a charset map with the 8-bits built-in charsets
+ * 
+ * @param charsets charset map
+ */
 void initDefaultCharsetsAscii(CharsetMapAscii &charsets);
+
+/**
+ * @brief Init a charset map with the unicode built-in charsets
+ * 
+ * @param charsets charset map
+ */
 void initDefaultCharsetsUnicode(CharsetMapUnicode &charsets);
 
+/**
+ * @brief Create an 8-bits charset from a file or from the string \a spec
+ * If a file named \a spec exists then the charset is initialized with its content
+ * Otherwise the content of the charset is the string \a spec
+ * 
+ * @param spec charset file name or charset content
+ * @param charset output charset
+ * @return false if an error occured
+ */
 bool readCharsetAscii(const char *spec, std::vector<char> &charset);
+
+/**
+ * @brief Create an unicode charset from a file or from the string \a spec
+ * If a file named \a spec exists then the charset is initialized with its content
+ * Otherwise the content of the charset is the string \a spec
+ * 
+ * The content of the file or the string \a spec must be UTF-8 encoded
+ * 
+ * @param spec charset file name or charset content
+ * @param charset output charset
+ * @return false if an error occured
+ */
 bool readCharsetUtf8(const char *spec, std::vector<uint32_t> &charset);
 
 }

@@ -29,6 +29,11 @@
 
 namespace Maskgen {
 
+/* create a mask from a string and all the defined charsets
+ * Return an empty mask if there was an error (undefined charset)
+ * 
+ * note that T('?') is valid for unicode as the codepoint of ASCII character is their value
+ */
 template<typename T, T escapeChar = T('?')>
 static Mask<T> readMask(const std::vector<T> &str, const CharsetMap<T> &defined_charsets) {
     Mask<T> mask;
@@ -59,6 +64,10 @@ static Mask<T> readMask(const std::vector<T> &str, const CharsetMap<T> &defined_
     return mask;
 }
 
+/* Read a line from a mask file
+ * 
+ * note that T('?') and T(',') are valid for unicode as the codepoint of ASCII character is their value
+ */
 template<typename T, T escapeChar = T('?'), T separatorChar = T(',')>
 static bool readMaskLine(const T *line, size_t line_len, const CharsetMap<T> &charsets, MaskList<T> &ml) {
     std::map<T, DefaultCharset<T>> effective_charsets = charsets;
@@ -66,10 +75,11 @@ static bool readMaskLine(const T *line, size_t line_len, const CharsetMap<T> &ch
     std::vector<std::vector<T>> tokens;
     tokens.resize(1);
     
+    // split the line on ,
     for (size_t i = 0; i < line_len; ) {
         T c = line[i];
         if (c == escapeChar && i + 1 < line_len ) {
-            if (line[i+1] == separatorChar) {
+            if (line[i+1] == separatorChar) { // an escaped ,
                 tokens.back().push_back(separatorChar);
                 i += 2;
             }
@@ -79,7 +89,8 @@ static bool readMaskLine(const T *line, size_t line_len, const CharsetMap<T> &ch
                 i += 2;
             }
         }
-        else if (c == separatorChar) {
+        else if (c == separatorChar) { // an unescaped ,
+            // finish this token and skip the ,
             tokens.resize(tokens.size() + 1);
             i++;
         }
@@ -89,11 +100,13 @@ static bool readMaskLine(const T *line, size_t line_len, const CharsetMap<T> &ch
         }
     }
     
+    // we won't name a charset with 2 digits...
     if (tokens.size() > 10) {
         fprintf(stderr, "Error: too many custom charsets defined (max: 9)\n");
         return false;
     }
     
+    // create the user defined charsets without expanding them
     for (size_t n = 0; n + 1 < tokens.size(); n++) {
         if (tokens[n].size() == 0) {
             fprintf(stderr, "Error: empty custom charset\n");
@@ -104,6 +117,7 @@ static bool readMaskLine(const T *line, size_t line_len, const CharsetMap<T> &ch
         effective_charsets[charset_key].final = false;
     }
     
+    // now expand all the user defined charsets
     // expandCharset checks for recursive charset definitions so we can safely expand all the user defined charsets
     for (size_t n = 0; n + 1 < tokens.size(); n++) {
         if (tokens[n].size() == 0) {

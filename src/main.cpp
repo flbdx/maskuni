@@ -180,9 +180,10 @@ std::vector<T> (expandCharset)(const std::vector<T> &, const CharsetMap<T> &, T 
 bool readMaskList(const char *spec, const CharsetMap<T> &, MaskList<T> &ml),
 typename Printer>
 int work(const struct Options &options, const char *mask_arg) {
-    CharsetMap<T> charsets;
+    CharsetMap<T> charsets; // create our built-in charsets
     initDefautCharsets(charsets);
     
+    // create the charset from the command line arguments
     for (auto p : options.m_charsets_defs) {
         std::vector<T> charset;
         if (!readCharset(p.second.c_str(), charset)) {
@@ -191,6 +192,7 @@ int work(const struct Options &options, const char *mask_arg) {
         }
         charsets[p.first] = DefaultCharset<T>(charset, false);
     }
+    // expand all the unexpanded charsets
     for (auto &p : charsets) {
         if (p.second.final) {
             continue;
@@ -203,7 +205,7 @@ int work(const struct Options &options, const char *mask_arg) {
         p.second.final = true;
     }
     
-    
+    // now read our masks
     MaskList<T> ml;
     if (!readMaskList(mask_arg, charsets, ml)) {
         fprintf(stderr, "Error while reading the mask definition '%s'\n", mask_arg);
@@ -218,9 +220,12 @@ int work(const struct Options &options, const char *mask_arg) {
     }
     
     uint64_t start_idx = 0;
-    uint64_t end_idx = ml_len;
+    uint64_t end_idx = ml_len; // after the last word
     
     if (options.m_job_set) {
+        // create our staring position and the number of word to generate
+        // from a job spec
+        // the remainder is distributed on the first jobs
         uint64_t q = ml_len / options.m_job_total;
         uint64_t r = ml_len - q * options.m_job_total;
         

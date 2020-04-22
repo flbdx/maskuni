@@ -23,7 +23,7 @@
 
 #include <getopt.h>
 
-#include "MaskRead.h"
+#include "ReadMasks.h"
 #include "utf_conv.h"
 
 using namespace Maskgen;

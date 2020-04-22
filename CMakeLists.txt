@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.0)
 project(maskgen)
 
 set (MASKGEN_SOURCES
-        src/ReadCharsets.cpp src/MaskRead.cpp src/main.cpp)
+        src/ReadCharsets.cpp src/ReadMasks.cpp src/main.cpp)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   # default release flags : remove -DNDEBUG (its a test project, want the asserts...) 

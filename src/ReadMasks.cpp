@@ -111,6 +111,10 @@ static bool readMaskLine(const T *line, size_t line_len, const CharsetMap<T> &ch
         }
         T charset_key = T('1' + n);
         effective_charsets[charset_key].cset = expandCharset<T>(effective_charsets[charset_key].cset, effective_charsets, charset_key);
+        if (effective_charsets[charset_key].cset.empty()) {
+            fprintf(stderr, "Error while reading the inline custom charset '%c'\n", charset_key);
+            return false;
+        }
         effective_charsets[charset_key].final = true;
     }
     

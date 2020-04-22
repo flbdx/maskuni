@@ -196,6 +196,10 @@ int work(const struct Options &options, const char *mask_arg) {
             continue;
         }
         p.second.cset = expandCharset(p.second.cset, charsets, p.first);
+        if (p.second.cset.empty()) {
+            fprintf(stderr, "Error while expanding the charset '%c' (undefined charset ?)\n", p.first);
+            return 1;
+        }
         p.second.final = true;
     }
     

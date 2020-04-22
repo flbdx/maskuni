@@ -68,9 +68,8 @@ static std::vector<T> expandCharset(const std::vector<T> &charset, const Charset
                                 it = std::next(it, repl_it->second.cset.size());
                             }
                         } else {
-                            // no charset found, remove ?
-                            it = lcharset.erase(it);
-                            it = std::next(it);
+                            // no charset found, fatal. returns empty charset
+                            return std::vector<T>();
                         }
                     }
                     n_chars += 2;

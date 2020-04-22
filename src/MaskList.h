@@ -138,7 +138,7 @@ public:
         m_current_mask->getCurrent(w); // first call for this mask, initialize the whole word
         *width = m_current_mask->getWidth();
         m_mask_rem--;
-        return m_mask_rem == 0;
+        return m_mask_rem == 0 && std::next(m_current_mask) == m_masks.end();
     }
     
     /**
@@ -167,7 +167,7 @@ public:
             m_current_mask->getNext(w); // update the word
             *width = m_current_mask->getWidth();
             m_mask_rem--;
-            return m_mask_rem == 0;
+            return m_mask_rem == 0 && std::next(m_current_mask) == m_masks.end();
         }
     }
 };

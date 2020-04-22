@@ -90,20 +90,33 @@ public:
     }
     
     inline __attribute__((always_inline)) bool getNext(T *w, size_t *width) {
-        m_current_mask->getNext(w, m_init_mask);
-        *width = m_current_mask->getWidth();
-        m_mask_rem--;
-        m_init_mask = m_mask_rem == 0;
-        if (m_init_mask) {
-            m_current_mask++;
-            if (m_current_mask == m_masks.end()) {
-                m_current_mask = m_masks.begin();
-                m_mask_rem = m_current_mask->getLen();
-                return true;
-            }
-            m_mask_rem = m_current_mask->getLen();
+        if (m_init_mask) { // first call to getNext
+            // our mask can't be empty if properly initialized, get current word
+            m_current_mask->getCurrent(w); // first call for this mask, initialize the whole word
+            *width = m_current_mask->getWidth();
+            m_init_mask = false;
+            m_mask_rem--;
+            return m_mask_rem == 0;
         }
-        return false;
+        else {
+            if (m_mask_rem == 0) { // load next mask
+                m_current_mask++;
+                if (m_current_mask == m_masks.end()) {
+                    m_current_mask = m_masks.begin();
+                }
+                m_mask_rem = m_current_mask->getLen();
+                m_current_mask->getCurrent(w); // first call for this mask, initialize the whole word
+                *width = m_current_mask->getWidth();
+                m_mask_rem--;
+                return false;
+            }
+            else {
+                 m_current_mask->getNext(w); // update the word
+                 *width = m_current_mask->getWidth();
+                 m_mask_rem--;
+                 return m_mask_rem == 0;
+            }
+        }
     }
 };
 

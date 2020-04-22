@@ -90,12 +90,17 @@ public:
         m_p = m_set + o;
     }
 
-    inline __attribute__((always_inline)) bool getNext(T *out, bool carry = false)
+    inline __attribute__((always_inline)) void getCurrent(T *out)
     {
-        m_p += ptrdiff_t(carry);
+        *out = *m_p;
+    }
+    
+    inline __attribute__((always_inline)) bool getNext(T *out)
+    {
+        m_p += 1;
         m_p = (m_p == m_set_end) ? m_set : m_p;
         *out = *m_p;
-        return carry && m_p == m_set;
+        return m_p == m_set;
     }
 };
 

@@ -107,7 +107,6 @@ public:
         if (o >= m_len) {
             o = (o % m_len);
         }
-        o = (o == 0) ? (m_len - 1) : (o - 1);
 
         for (auto it = m_charsets.rbegin(); it != m_charsets.rend(); it++) {
             uint64_t s = (*it).getLen();
@@ -118,18 +117,21 @@ public:
         }
     }
 
-    inline __attribute__((always_inline)) bool getNext(T *w, bool init = false)
+    inline __attribute__((always_inline)) void getCurrent(T *w)
+    {
+        for (size_t i = 0; i < m_n_charsets; i++) {
+             m_charsets[i].getCurrent(w + i);
+        }
+    }
+    
+    inline __attribute__((always_inline)) bool getNext(T *w)
     {
         bool carry = true;
-        for (size_t i = m_n_charsets; (carry || init) && i != 0; i--) {
-            carry = m_charsets[i - 1].getNext(w + (i - 1), carry);
+        for (size_t i = m_n_charsets; carry && i != 0; i--) {
+            carry = m_charsets[i - 1].getNext(w + (i - 1));
         }
         return carry;
     }
-/*    
-    inline bool atEnd() {
-        return 
-    }*/
 };
 
 }

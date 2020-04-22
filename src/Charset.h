@@ -23,15 +23,26 @@
 
 namespace Maskgen {
 
+/**
+ * @brief Hold a charset and iterate over its content
+ * @param T Either char or 8-bit charsets or uint32_t for unicode codepoints
+ */
 template<typename T>
 class Charset
 {
-    T *m_set;
-    uint64_t m_len;
-    T *m_set_end;
-    T *m_p;
+    T *m_set;           /*!< characters */
+    uint64_t m_len;     /*!< length of \a m_set */
+    T *m_set_end;       /*!< m_set + m_len */
+    T *m_p;             /*!< current position in the charset */
 
 public:
+    
+    /**
+     * @brief Construct a new charset
+     * 
+     * @param set characters
+     * @param set_len number of characters in \a set
+     */
     Charset(const T *set, uint64_t set_len) :
         m_set(nullptr)
         , m_len(set_len)
@@ -77,11 +88,22 @@ public:
         return *this;
     }
 
+    /**
+     * @brief Get the number of characters in the charset
+     * 
+     * @return Length of the charset
+     */
     inline uint64_t getLen() const
     {
         return m_len;
     }
 
+    /**
+     * @brief Set the position of the next char to read from the charset
+     * If the position is greater than the charset's length, a modulo is applied
+     * 
+     * @param o position
+     */
     void setPosition(uint64_t o)
     {
         if (o >= m_len) {
@@ -90,11 +112,21 @@ public:
         m_p = m_set + o;
     }
 
+    /**
+     * @brief Copy the character at the current position
+     * 
+     * @param out Store the current character
+     */
     inline __attribute__((always_inline)) void getCurrent(T *out)
     {
         *out = *m_p;
     }
     
+    /**
+     * @brief Increment the charset then copy the character at the resulting position
+     * 
+     * @param out Store the next character
+     */
     inline __attribute__((always_inline)) bool getNext(T *out)
     {
         m_p += 1;

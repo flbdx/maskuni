@@ -23,16 +23,33 @@
 
 namespace Maskgen {
 
+/**
+ * @brief Hold a mask and iterate over its content
+ * A mask is a list of charsets.
+ * 
+ * \a setPosition must be called before iterating over the mask
+ * \a getCurrent should be use to get the first word of the mask.
+ * \a getNext should be called with the same parameter to get the subsequent words.
+ * 
+ * @param T Either char or 8-bit charsets or uint32_t for unicode codepoints
+ */
 template<typename T>
 class Mask
 {
-    std::vector<Charset<T>> m_charsets;
-    size_t m_n_charsets;
-    uint64_t m_len;
+    std::vector<Charset<T>> m_charsets; /*!< list of charsets from left to right */
+    size_t m_n_charsets;                /*!< m_charsets.size() */
+    uint64_t m_len;                     /*!< sum of the charsets' length */
 
 public:
     Mask() : m_charsets(), m_n_charsets(0), m_len(0) {}
 
+    /**
+     * @brief Add a charset to the right of the already defined charsets
+     * This method will abort if the length of the mask would not fit in an unsigned 64 bit integer
+     * 
+     * @param set characters
+     * @param set_len number of characters
+     */
     void push_charset_right(const T *set, uint64_t set_len)
     {
         m_charsets.emplace_back(set, set_len);
@@ -47,7 +64,13 @@ public:
         m_n_charsets++;
     }
 
-    void push_charset_right(const Charset<T> &charset)
+    /**
+     * @brief Add a charset to the right of the already defined charsets
+     * This method will abort if the length of the mask would not fit in an unsigned 64 bit integer
+     * 
+     * @param charset charset
+     */
+    void push_chaset_right(const Charset<T> &charset)
     {
         m_charsets.emplace_back(charset);
         if (m_n_charsets == 0) {
@@ -61,6 +84,13 @@ public:
         m_n_charsets++;
     }
 
+    /**
+     * @brief Add a charset to the left of the already defined charsets
+     * This method will abort if the length of the mask would not fit in an unsigned 64 bit integer
+     * 
+     * @param set characters
+     * @param set_len number of characters
+     */
     void push_charset_left(const T *set, uint64_t set_len)
     {
         m_charsets.emplace(m_charsets.begin(), set, set_len);
@@ -75,6 +105,12 @@ public:
         m_n_charsets++;
     }
 
+    /**
+     * @brief Add a charset to the left of the already defined charsets
+     * This method will abort if the length of the mask would not fit in an unsigned 64 bit integer
+     * 
+     * @param charset charset
+     */
     void push_charset_left(const Charset<T> &charset)
     {
         m_charsets.emplace(m_charsets.begin(), charset);
@@ -89,16 +125,32 @@ public:
         m_n_charsets++;
     }
 
+    /**
+     * @brief Get the length of this mask (number of words)
+     * 
+     * @return Length of the mask
+     */
     uint64_t getLen() const
     {
         return m_len;
     }
 
+    /**
+     * @brief Get the width of this mask (number of characters)
+     * 
+     * @return Width of the mask
+     */
     size_t getWidth() const
     {
         return m_charsets.size();
     }
 
+    /**
+     * @brief Set the current position in the mask (between 0 and \a getLen())
+     * Must be called before using \a getCurrent and \a getNext
+     * 
+     * @param o Position
+     */
     void setPosition(uint64_t o)
     {
         if (m_len == 0) {
@@ -108,6 +160,7 @@ public:
             o = (o % m_len);
         }
 
+        // set the position from right to left
         for (auto it = m_charsets.rbegin(); it != m_charsets.rend(); it++) {
             uint64_t s = (*it).getLen();
             uint64_t q = o / s;
@@ -117,6 +170,12 @@ public:
         }
     }
 
+    /**
+     * @brief Copy the current word into w without incrementing the mask
+     * This method must be called to fully initialize a word.
+     * 
+     * @param w buffer of at least getWidth() elements
+     */
     inline __attribute__((always_inline)) void getCurrent(T *w)
     {
         for (size_t i = 0; i < m_n_charsets; i++) {
@@ -124,6 +183,17 @@ public:
         }
     }
     
+    /**
+     * @brief Increment the mask and update a buffer with the next word
+     * Only the changed characters of the \a w parameter are updated
+     * therefore getNext whould always be called with the same parameter
+     * and only after initializing the first word with \a getCurrent.
+     * 
+     * The word is iterated from right to left.
+     * 
+     * @param w buffer of at least getWidth() elements
+     * @return true if the mask is back to position 0 ("carry")
+     */
     inline __attribute__((always_inline)) bool getNext(T *w)
     {
         bool carry = true;

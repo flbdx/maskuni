@@ -85,30 +85,39 @@ void initDefaultCharsetsAscii(CharsetMapAscii &charsets)
 void initDefaultCharsetsUnicode(CharsetMapUnicode &charsets)
 {
     size_t consumed = 0, written = 0;
+    charsets['l'].cset.clear();
     UTF::decode_utf8(default_charset_l, 26, std::back_inserter(charsets['l'].cset), &consumed, &written);
     charsets['l'].final = true;
     
+    charsets['u'].cset.clear();
     UTF::decode_utf8(default_charset_u, 26, std::back_inserter(charsets['u'].cset), &consumed, &written);
     charsets['u'].final = true;
     
+    charsets['d'].cset.clear();
     UTF::decode_utf8(default_charset_d, 10, std::back_inserter(charsets['d'].cset), &consumed, &written);
     charsets['d'].final = true;
     
+    charsets['s'].cset.clear();
     UTF::decode_utf8(default_charset_s, sizeof(default_charset_s) - 1, std::back_inserter(charsets['s'].cset), &consumed, &written);
     charsets['s'].final = true;
     
-    UTF::decode_utf8(default_charset_h, 16, std::back_inserter(charsets['H'].cset), &consumed, &written);
+    charsets['h'].cset.clear();
+    UTF::decode_utf8(default_charset_h, 16, std::back_inserter(charsets['h'].cset), &consumed, &written);
     charsets['h'].final = true;
     
+    charsets['H'].cset.clear();
     UTF::decode_utf8(default_charset_H, 16, std::back_inserter(charsets['H'].cset), &consumed, &written);
     charsets['H'].final = true;
     
+    charsets['n'].cset.clear();
     UTF::decode_utf8(default_charset_n, 1, std::back_inserter(charsets['n'].cset), &consumed, &written);
     charsets['n'].final = true;
     
+    charsets['r'].cset.clear();
     UTF::decode_utf8(default_charset_r, 1, std::back_inserter(charsets['r'].cset), &consumed, &written);
     charsets['r'].final = true;
     
+    charsets['a'].cset.clear();
     UTF::decode_utf8(default_charset_a, sizeof(default_charset_a) - 1, std::back_inserter(charsets['a'].cset), &consumed, &written);
 //     charsets['a'].cset = expandCharsetUnicode(charsets['a'].cset, charsets, uint32_t('a'));
     charsets['a'].final = false;

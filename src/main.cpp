@@ -22,6 +22,10 @@
 #include <map>
 
 #include <getopt.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "ReadMasks.h"
 #include "utf_conv.h"
@@ -149,8 +153,11 @@ struct Options {
 
 class Print8bit {
 public:
-    inline void print(const char *buffer, size_t len, FILE *out) {
-        fwrite(buffer, 1, len, out);
+    inline void print(const char *buffer, size_t len, int fdout) {
+        if (write(fdout, buffer, len) != (ssize_t) len) {
+            fprintf(stderr, "Error while writing the output data : %m");
+            exit(1);
+        }
     }
 };
 
@@ -161,10 +168,13 @@ class PrintUnicode {
 public:
     PrintUnicode() : conv_buffer(NULL), conv_buffer_size(0) {}
     ~PrintUnicode() {free(conv_buffer);};
-    inline void print(const uint32_t *buffer, size_t len, FILE *out) {
+    inline void print(const uint32_t *buffer, size_t len, int fdout) {
         size_t consumed = 0, written = 0;
         if (UTF::encode_utf8(buffer, len, &conv_buffer, &conv_buffer_size, &consumed, &written) == UTF::RetCode::OK) {
-            fwrite(conv_buffer, 1, written, out);
+            if (write(fdout, conv_buffer, written) != (ssize_t) written) {
+                fprintf(stderr, "Error while writing the output data : %m");
+                exit(1);
+            }
         }
         else {
             fprintf(stderr, "Error: could not encode the generated words into UTF-8\n");
@@ -252,7 +262,7 @@ int work(const struct Options &options, const char *mask_arg) {
     }
     
     Printer printer;
-    std::vector<T> buffer(BUFSIZ);
+    std::vector<T> buffer(8192);
     T * buffer_p = buffer.data();
     const T * buffer_end = buffer.data() + buffer.size();
     std::vector<T> word(ml.getMaxWidth() + 1);
@@ -262,10 +272,10 @@ int work(const struct Options &options, const char *mask_arg) {
     }
     
     // at last create the output file if needed now that we're not supposed to fail anymore
-    FILE *outfile = stdout;
+    int fdout = STDOUT_FILENO;
     if (!options.m_output_file.empty()) {
-        outfile = fopen(options.m_output_file.c_str(), "wb");
-        if (outfile == NULL) {
+        fdout = open(options.m_output_file.c_str(), O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR|S_IWUSR);
+        if (fdout < 0) {
             fprintf(stderr, "Error: can't open the output file : %m\n");
             return 1;
         }
@@ -283,7 +293,7 @@ int work(const struct Options &options, const char *mask_arg) {
         ml.getFirstWord(word.data(), &w);
         word[w] = delim;
         if (w + delim_width > size_t(buffer_end - buffer_p)) {
-            printer.print(buffer.data(), buffer_p - buffer.data(), outfile);
+            printer.print(buffer.data(), buffer_p - buffer.data(), fdout);
             buffer_p = buffer.data();
         }
         
@@ -295,7 +305,7 @@ int work(const struct Options &options, const char *mask_arg) {
         ml.getNext(word.data(), &w);
         word[w] = delim;
         if (w + delim_width > size_t(buffer_end - buffer_p)) {
-            printer.print(buffer.data(), buffer_p - buffer.data(), outfile);
+            printer.print(buffer.data(), buffer_p - buffer.data(), fdout);
             buffer_p = buffer.data();
         }
         
@@ -303,9 +313,9 @@ int work(const struct Options &options, const char *mask_arg) {
         buffer_p += w + delim_width;
     }
     
-    printer.print(buffer.data(), buffer_p - buffer.data(), outfile);
-    if (outfile != stdout) {
-        fclose(outfile);
+    printer.print(buffer.data(), buffer_p - buffer.data(), fdout);
+    if (fdout != STDOUT_FILENO) {
+        close(fdout);
     }
     return 0;
 }

@@ -44,11 +44,12 @@
  * - stream decoding :
  *   (1) template<typename Read, typename OutputIt> RetCode unicode_decode(const char *input, size_t input_len, OutputIt output, size_t *consumed, size_t *written)
  *   (2) template<typename Read> RetCode unicode_decode(const char *input, size_t input_len, uint32_t **output, size_t *output_size, size_t *consumed, size_t *written)
+ *   (3) template<typename Read> RetCode unicode_decode_one(const char *input, size_t input_len, uint32_t *output, size_t *consumed)
  * - stream encoding :
  *   (1) template<typename Encode, typename OutputIt> RetCode unicode_encode(const uint32_t *input, size_t input_len, OutputIt output, size_t *consumed, size_t *written)
  *   (2) template<typename Encode> RetCode unicode_encode(const uint32_t *input, size_t input_len, char **output, size_t *output_size, size_t *consumed, size_t *written)
  * - stream validation and length counting :
- *   (3) template<typename Read> RetCode unicode_validate(const char *input, size_t input_len, size_t *consumed, size_t *length)
+ *   (4) template<typename Read> RetCode unicode_validate(const char *input, size_t input_len, size_t *consumed, size_t *length)
  *
  * template parameters :
  * - Read : a Read* class
@@ -75,7 +76,13 @@
  *       consumed : store the number of elements read from input. If *consumed == input_len, there was no error
  *       written : store the number of elements written into output
  *       return : error code (OK, E_INVALID, E_TRUNCATED, E_PARAMS)
- * (3) :
+ * (3) : 
+ *       input : beginning of the input stream
+ *       input_len : number of elements in the input stream (!= byte size)
+ *       output : store the codepoint
+ *       consumed : store the number of elements read from input for this single codepoint.
+ *       return : error code (OK, E_INVALID, E_TRUNCATED, E_PARAMS)
+ * (4) :
  *       input : beginning of the input stream
  *       input_len : number of elements in the input stream (!= byte size)
  *       consumed : store the number of elements read from input. If *consumed == input_len, there was no error
@@ -540,6 +547,37 @@ RetCode unicode_decode(const char *input, size_t input_len, uint32_t **output, s
     if (written) {
         *written = w;
     }
+    return ret;
+}
+
+/*
+ * UTF decoder, read only one sequence
+ */
+template<typename Read>
+static inline __attribute__((always_inline))
+RetCode unicode_decode_one(const char *input, size_t input_len, uint32_t *output, size_t *consumed) {
+    RetCode ret = RetCode::OK;
+    if (!input || input_len == 0) {
+        return RetCode::E_PARAMS;
+    }
+    if (consumed) {
+        *consumed = 0;
+    }
+
+    uint32_t cp;
+    int removed = Read::read(input, input_len, cp);
+    if (removed < 0) {
+        return RetCode::E_INVALID;
+    }
+    if (removed == 0) {
+        return RetCode::E_TRUNCATED;
+    }
+    *output = cp;
+
+    if (consumed) {
+        *consumed += removed;
+    }
+
     return ret;
 }
 

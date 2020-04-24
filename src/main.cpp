@@ -20,6 +20,7 @@
 
 #include <string>
 #include <map>
+#include <typeinfo>
 
 #include <getopt.h>
 #include <unistd.h>
@@ -151,52 +152,95 @@ struct Options {
     {}
 };
 
-class Print8bit {
-public:
-    inline void print(const char *buffer, size_t len, int fdout) {
-        if (write(fdout, buffer, len) != (ssize_t) len) {
-            fprintf(stderr, "Error while writing the output data : %m");
-            exit(1);
-        }
-    }
-};
-
-class PrintUnicode {
-    char *conv_buffer;
-    size_t conv_buffer_size;
-    
-public:
-    PrintUnicode() : conv_buffer(NULL), conv_buffer_size(0) {}
-    ~PrintUnicode() {free(conv_buffer);};
-    inline void print(const uint32_t *buffer, size_t len, int fdout) {
-        size_t consumed = 0, written = 0;
-        if (UTF::encode_utf8(buffer, len, &conv_buffer, &conv_buffer_size, &consumed, &written) == UTF::RetCode::OK) {
-            if (write(fdout, conv_buffer, written) != (ssize_t) written) {
+struct Helper8bit {
+    class Print8bit
+    {
+    public:
+        inline void print(const char *buffer, size_t len, int fdout)
+        {
+            if (write(fdout, buffer, len) != (ssize_t) len) {
                 fprintf(stderr, "Error while writing the output data : %m");
                 exit(1);
             }
         }
-        else {
-            fprintf(stderr, "Error: could not encode the generated words into UTF-8\n");
-            exit(1);
-        }
+    };
+    typedef char CharType;
+    typedef Print8bit Printer;
+    static inline void initDefaultCharsets(CharsetMap<char> &map)
+    {
+        return initDefaultCharsetsAscii(map);
+    }
+    static inline bool readCharset(const char *spec, std::vector<char> &charset)
+    {
+        return readCharsetAscii(spec, charset);
+    }
+    static inline std::vector<char> expandCharset(const std::vector<char> &charset, const CharsetMap<char> &default_charsets, char charset_name)
+    {
+        return expandCharsetAscii(charset, default_charsets, charset_name);
+    }
+    static inline bool readMaskList(const char *spec, const CharsetMap<char> &default_charsets, MaskList<char> &ml)
+    {
+        return readMaskListAscii(spec, default_charsets, ml);
     }
 };
 
-template<typename T,
-void (initDefautCharsets(CharsetMap<T> &)),
-bool (readCharset(const char *, std::vector<T> &)),
-std::vector<T> (expandCharset)(const std::vector<T> &, const CharsetMap<T> &, T charset_name),
-bool readMaskList(const char *spec, const CharsetMap<T> &, MaskList<T> &ml),
-typename Printer>
+struct HelperUnicode {
+    class PrintUnicode
+    {
+        char *conv_buffer;
+        size_t conv_buffer_size;
+
+    public:
+        PrintUnicode() : conv_buffer(NULL), conv_buffer_size(0) {}
+        ~PrintUnicode()
+        {
+            free(conv_buffer);
+        };
+        inline void print(const uint32_t *buffer, size_t len, int fdout)
+        {
+            size_t consumed = 0, written = 0;
+            if (UTF::encode_utf8(buffer, len, &conv_buffer, &conv_buffer_size, &consumed, &written) == UTF::RetCode::OK) {
+                if (write(fdout, conv_buffer, written) != (ssize_t) written) {
+                    fprintf(stderr, "Error while writing the output data : %m");
+                    exit(1);
+                }
+            } else {
+                fprintf(stderr, "Error: could not encode the generated words into UTF-8\n");
+                exit(1);
+            }
+        }
+    };
+    typedef uint32_t CharType;
+    typedef PrintUnicode Printer;
+    static inline void initDefaultCharsets(CharsetMap<uint32_t> &map)
+    {
+        return initDefaultCharsetsUnicode(map);
+    }
+    static inline bool readCharset(const char *spec, std::vector<uint32_t> &charset)
+    {
+        return readCharsetUtf8(spec, charset);
+    }
+    static inline std::vector<uint32_t> expandCharset(const std::vector<uint32_t> &charset, const CharsetMap<uint32_t> &default_charsets, uint32_t charset_name)
+    {
+        return expandCharsetUnicode(charset, default_charsets, charset_name);
+    }
+    static inline bool readMaskList(const char *spec, const CharsetMap<uint32_t> &default_charsets, MaskList<uint32_t> &ml)
+    {
+        return readMaskListUtf8(spec, default_charsets, ml);
+    }
+};
+
+template<typename T>
 int work(const struct Options &options, const char *mask_arg) {
+    static_assert(std::is_same<T, char>::value || std::is_same<T, uint32_t>::value, "word requires char or uint32_t as template parameter");
+    typedef typename std::conditional<std::is_same<T, char>::value, Helper8bit, HelperUnicode>::type Helper;
     CharsetMap<T> charsets; // create our built-in charsets
-    initDefautCharsets(charsets);
+    Helper::initDefaultCharsets(charsets);
     
     // create the charset from the command line arguments
     for (auto p : options.m_charsets_defs) {
         std::vector<T> charset;
-        if (!readCharset(p.second.c_str(), charset)) {
+        if (!Helper::readCharset(p.second.c_str(), charset)) {
             fprintf(stderr, "Error while reading the charset '%c'\n", p.first);
             exit(1);
         }
@@ -207,7 +251,7 @@ int work(const struct Options &options, const char *mask_arg) {
         if (p.second.final) {
             continue;
         }
-        p.second.cset = expandCharset(p.second.cset, charsets, p.first);
+        p.second.cset = Helper::expandCharset(p.second.cset, charsets, p.first);
         if (p.second.cset.empty()) {
             fprintf(stderr, "Error while expanding the charset '%c' (undefined charset ?)\n", p.first);
             return 1;
@@ -217,7 +261,7 @@ int work(const struct Options &options, const char *mask_arg) {
     
     // now read our masks
     MaskList<T> ml;
-    if (!readMaskList(mask_arg, charsets, ml)) {
+    if (!Helper::readMaskList(mask_arg, charsets, ml)) {
         fprintf(stderr, "Error while reading the mask definition '%s'\n", mask_arg);
         exit(1);
     }
@@ -261,7 +305,7 @@ int work(const struct Options &options, const char *mask_arg) {
         }
     }
     
-    Printer printer;
+    typename Helper::Printer printer;
     std::vector<T> buffer(8192);
     T * buffer_p = buffer.data();
     const T * buffer_end = buffer.data() + buffer.size();
@@ -427,11 +471,11 @@ int main(int argc, char **argv)
     const char *mask_arg = argv[0];
     
     if (!options.m_unicode) {
-        int r = work<char, initDefaultCharsetsAscii, readCharsetAscii, expandCharsetAscii, readMaskListAscii, Print8bit>(options, mask_arg);
+        int r = work<char>(options, mask_arg);
         return r;
     }
     else {
-        int r = work<uint32_t, initDefaultCharsetsUnicode, readCharsetUtf8, expandCharsetUnicode, readMaskListUtf8, PrintUnicode>(options, mask_arg);
+        int r = work<uint32_t>(options, mask_arg);
         return r;
     }
 

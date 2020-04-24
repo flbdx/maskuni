@@ -49,7 +49,7 @@ static Mask<T> readMask(const std::vector<T> &str, const CharsetMap<T> &defined_
                     mask.push_charset_right(it_charset->second.cset.data(), it_charset->second.cset.size());
                 }
                 else {
-                    fprintf(stderr, "Error: charset '?%c' is not defined\n", char(key));
+                    fprintf(stderr, "Error: charset '?%lc' is not defined\n", key);
                     return Mask<T>();
                 }
             }
@@ -126,7 +126,7 @@ static bool readMaskLine(const T *line, size_t line_len, const CharsetMap<T> &ch
         T charset_key = T('1' + n);
         effective_charsets[charset_key].cset = expandCharset<T>(effective_charsets[charset_key].cset, effective_charsets, charset_key);
         if (effective_charsets[charset_key].cset.empty()) {
-            fprintf(stderr, "Error while reading the inline custom charset '%c'\n", charset_key);
+            fprintf(stderr, "Error while reading the inline custom charset '%lc'\n", charset_key);
             return false;
         }
         effective_charsets[charset_key].final = true;

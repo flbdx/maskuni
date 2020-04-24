@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <locale.h>
 
 #include "ReadMasks.h"
 #include "utf_conv.h"
@@ -64,9 +65,9 @@ static void usage() {
     " Charsets:\n"
     "  A charset is a named variable describing a list of characters. Unless\n"
     "  the --unicode option is used, only 8-bit characters are allowed.\n"
-    "  The name of a charset is a single 8-bit character. It is refered using\n"
-    "  '?' followed by its name (example : ?d). A charset definition can refer\n"
-    "  to other named charsets.\n"
+    "  The name of a charset is a single character. It is refered using '?'\n"
+    "  followed by its name (example : ?d). A charset definition can refer to\n"
+    "  other named charsets.\n"
     "\n"
     "  Built-in charsets:\n"
     "   ?l = abcdefghijklmnopqrstuvwxyz\n"
@@ -92,7 +93,9 @@ static void usage() {
     "   -4, --custom-charset4=CS\n"
     "\n"
     "   -c, --charset=K:CS          Define a charset named 'K' with the content\n"
-    "                               'CS'. 'K' must be a single 8-bit char.\n"
+    "                               'CS'. 'K' may be an UTF-8 char onlye if\n"
+    "                               --unicode is used. Otherwise it's a single\n"
+    "                               8-bit char.\n"
     "\n"
     " Masks:\n"
     "  Masks are templates defining wich characters are allowed for each\n"
@@ -139,7 +142,8 @@ struct Options {
     bool m_zero_delim;
     bool m_no_delim;
     bool m_print_size;
-    std::map<char, std::string> m_charsets_defs;
+    std::map<char, std::string> m_charsets_short_defs; // for -1, -2, ... -4 arguments
+    std::vector<std::string> m_charsets_long_defs; // for "-c k:def" arguments (unparsed)
     
     Options() :
     m_unicode(false)
@@ -148,7 +152,8 @@ struct Options {
     , m_output_file()
     , m_zero_delim(false), m_no_delim(false)
     , m_print_size(false)
-    , m_charsets_defs()
+    , m_charsets_short_defs()
+    , m_charsets_long_defs()
     {}
 };
 
@@ -173,6 +178,14 @@ struct Helper8bit {
     static inline bool readCharset(const char *spec, std::vector<char> &charset)
     {
         return readCharsetAscii(spec, charset);
+    }
+    static bool parseCharsetArg(const char *spec, char &key, std::vector<char> &charset) {
+        size_t spec_len = strlen(spec);
+        if (spec_len < 3 || spec[1] != ':') {
+            return false;
+        }
+        key = spec[0];
+        return readCharsetAscii(spec + 2, charset);
     }
     static inline std::vector<char> expandCharset(const std::vector<char> &charset, const CharsetMap<char> &default_charsets, char charset_name)
     {
@@ -220,6 +233,27 @@ struct HelperUnicode {
     {
         return readCharsetUtf8(spec, charset);
     }
+    static bool parseCharsetArg(const char *spec, uint32_t &key, std::vector<uint32_t> &charset)
+    {
+        // need to parse K:file_or_charset
+        // where K may be an UTF-8 char
+        // first pick the first char
+        // then check that the following char is ASCII ':'
+        size_t spec_len = strlen(spec);
+        size_t consumed = 0;
+        if (UTF::decode_one_utf8(spec, spec_len, &key, &consumed) != UTF::RetCode::OK) {
+            return false;
+        }
+        spec += consumed;
+        spec_len -= consumed;
+        if (*spec != ':') {
+            return false;
+        }
+        spec += 1;
+        spec_len --;
+        
+        return readCharsetUtf8(spec, charset);
+    }
     static inline std::vector<uint32_t> expandCharset(const std::vector<uint32_t> &charset, const CharsetMap<uint32_t> &default_charsets, uint32_t charset_name)
     {
         return expandCharsetUnicode(charset, default_charsets, charset_name);
@@ -237,15 +271,26 @@ int work(const struct Options &options, const char *mask_arg) {
     CharsetMap<T> charsets; // create our built-in charsets
     Helper::initDefaultCharsets(charsets);
     
-    // create the charset from the command line arguments
-    for (auto p : options.m_charsets_defs) {
+    // create the charsets from the "-1, -2... -4" command line arguments
+    for (auto p : options.m_charsets_short_defs) {
         std::vector<T> charset;
         if (!Helper::readCharset(p.second.c_str(), charset)) {
-            fprintf(stderr, "Error while reading the charset '%c'\n", p.first);
+            fprintf(stderr, "Error while reading the charset '%lc'\n", p.first);
             exit(1);
         }
         charsets[p.first] = DefaultCharset<T>(charset, false);
     }
+    // create the charsets from the "-c" command line arguments
+    for (const auto &s : options.m_charsets_long_defs) {
+        T key;
+        std::vector<T> charset;
+        if (!Helper::parseCharsetArg(s.c_str(), key, charset)) {
+            fprintf(stderr, "Error while reading the charset definition '%s'\n", s.c_str());
+            exit(1);
+        }
+        charsets[key] = DefaultCharset<T>(charset, false);
+    }
+    
     // expand all the unexpanded charsets
     for (auto &p : charsets) {
         if (p.second.final) {
@@ -253,7 +298,7 @@ int work(const struct Options &options, const char *mask_arg) {
         }
         p.second.cset = Helper::expandCharset(p.second.cset, charsets, p.first);
         if (p.second.cset.empty()) {
-            fprintf(stderr, "Error while expanding the charset '%c' (undefined charset ?)\n", p.first);
+            fprintf(stderr, "Error while expanding the charset '%lc' (undefined charset ?)\n", p.first);
             return 1;
         }
         p.second.final = true;
@@ -366,6 +411,7 @@ int work(const struct Options &options, const char *mask_arg) {
 
 int main(int argc, char **argv)
 {
+    setlocale(LC_ALL, "");
     Options options;
     
     struct option longopts[] = {
@@ -442,17 +488,10 @@ int main(int argc, char **argv)
             case '2':
             case '3':
             case '4':
-                options.m_charsets_defs[opt] = std::string(optarg);
+                options.m_charsets_short_defs[opt] = std::string(optarg);
                 break;
             case 'c':
-            {
-                size_t optlen = strlen(optarg);
-                if (optlen < 3 || optarg[1] != ':') {
-                    fprintf(stderr, "Error: wrong charset specification (%s)\n", optarg);
-                    exit(1);
-                }
-                options.m_charsets_defs[optarg[0]] = std::string(optarg + 2);
-            }
+                options.m_charsets_long_defs.emplace_back(optarg);
                 break;
             default:
                 usage();

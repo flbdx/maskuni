@@ -45,7 +45,6 @@ struct DefaultCharset {
 
 /**
  * @brief A map charset name -> charset
- * TODO: can we have non 8 bits charset names ? Right now it's enforced by the CLI arguments parsing
  */
 template<typename T> using CharsetMap = std::map<T, DefaultCharset<T>>;
 typedef CharsetMap<char> CharsetMapAscii;

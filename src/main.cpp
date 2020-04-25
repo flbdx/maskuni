@@ -47,7 +47,7 @@ static void usage() {
     "                               disables the '?b' built-in charset"
     "\n"
     " Range:\n"
-    "  -j, --job=J/N                Devide the generation in N equal parts and\n"
+    "  -j, --job=J/N                Divide the generation in N equal parts and\n"
     "                               generate the 'J'th part (counting from 1)\n"
     "  -b, --begin=N                Start the generation at the Nth word\n"
     "                               counting from 0\n"
@@ -65,7 +65,7 @@ static void usage() {
     " Charsets:\n"
     "  A charset is a named variable describing a list of characters. Unless\n"
     "  the --unicode option is used, only 8-bit characters are allowed.\n"
-    "  The name of a charset is a single character. It is refered using '?'\n"
+    "  The name of a charset is a single character. It is reffered using '?'\n"
     "  followed by its name (example : ?d). A charset definition can refer to\n"
     "  other named charsets.\n"
     "\n"
@@ -98,7 +98,7 @@ static void usage() {
     "                               8-bit char.\n"
     "\n"
     " Masks:\n"
-    "  Masks are templates defining wich characters are allowed for each\n"
+    "  Masks are templates defining which characters are allowed for each\n"
     "  positions. Masks are single line strings build by concatenating\n"
     "  for each positions either: \n"
     "  - a static character\n"
@@ -112,17 +112,18 @@ static void usage() {
     "\n"
     "  Mask files can also embed charset definitions. The general syntax for\n"
     "  a single line is:\n"
-    "   [?1,][?2,]...[?9,]mask\n"
+    "   [:1:,][:2:,]...[:9:,]:mask:\n"
     "  where the placeholders are as follows:\n"
-    "   [?1] the named custom charset '1' (override --custom-charset1 or -1)\n"
-    "        will be set to this value, optional\n"
-    "   [?2] the named custom charset '2' (override --custom-charset2 or -2)\n"
-    "        will be set to this value, optional\n"
+    "   :1: the named custom charset '1' (overrides --custom-charset1 or \n"
+    "        --charset) will be set to this value, optional\n"
+    "   :2: the named custom charset '2' (overrides --custom-charset2 or \n"
+    "       --charset) will be set to this value, optional\n"
     "   ...\n"
-    "   [?9] the named custom charset '9'  will be set to this value, optional\n"
-    "   [mask] the mask which may refer to the previously defined charsets\n"
+    "   :9: the named custom charset '9' (overrides --charset) will be set to\n"
+    "       this value, optional\n"
+    "   :mask: the mask which may refer to the previously defined charsets\n"
     "\n"
-    "  The characters ',' and '?' can be escaped by writting '?,' or '?\?'.\n"
+    "  The characters ',' and '?' can be escaped by writing '?,' or '?\?'.\n"
     "\n"
     ;
     
@@ -313,11 +314,6 @@ int work(const struct Options &options, const char *mask_arg) {
     
     uint64_t ml_len = ml.getLen();
     
-    if (options.m_print_size) {
-        printf("%" PRIu64 "\n", ml_len);
-        return 0;
-    }
-    
     uint64_t start_idx = 0;
     uint64_t end_idx = ml_len; // after the last word
     
@@ -348,6 +344,11 @@ int work(const struct Options &options, const char *mask_arg) {
             fprintf(stderr, "Error: the last word number is not valid\n");
             return 1;
         }
+    }
+    
+    if (options.m_print_size) {
+        printf("%" PRId64 "\n", end_idx - start_idx);
+        return 0;
     }
     
     typename Helper::Printer printer;

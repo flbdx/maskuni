@@ -340,7 +340,7 @@ emoji👍
 
 When unicode support is enabled, Maskgen is significantly slower as it will iterate over 32-bits unicode codepoints instead of 8-bits characters and therefore read or write 4 times as much memory for the same word width. And of course Maskgen must encode its output in UTF-8.
 
-Note that there as some subtleties for the specific case of unicode emojis as a character may be followed by a variant character to change its rendering. For example ❤ (U+2764) followed by U+FEOF becomes the very commonly used red heart emoji ❤️.
+Note that there are many subtleties when it comes to unicode characters. Some characters are formed by combining several characters. Emoji characters are complex and masks are not the best approach for emoji generation (see [Unicode TR#51](https://unicode.org/reports/tr51/)). In the previous example, the heart ❤︎ (U+2764) is actually not the very common red heart emoji ❤️ which is formed by combining U+2764 with the variant selector U+FE0F. As another example, "👨‍👩‍👦‍👦" should be represented as a single character (if supported by the browser and if it survived the markdown rendering) but is actually a sequence of 7 characters.
 
 ### Partitioning the generation
 

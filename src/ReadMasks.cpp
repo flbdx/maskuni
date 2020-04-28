@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "config.h"
+
 #include "ReadMasks.h"
 #include "ExpandCharset.h"
 #include "utf_conv.h"
@@ -26,6 +28,10 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+
+#ifndef HAVE_GETLINE
+# include "getline.h"
+#endif
 
 namespace Maskgen {
 

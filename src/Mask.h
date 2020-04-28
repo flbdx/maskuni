@@ -39,6 +39,26 @@ class Mask
     std::vector<Charset<T>> m_charsets; /*!< list of charsets from left to right */
     size_t m_n_charsets;                /*!< m_charsets.size() */
     uint64_t m_len;                     /*!< sum of the charsets' length */
+    
+    /**
+    * @brief A wrapper around __builtin_umull_overflow or __builtin_umulll_overflow depending of the exact type of uint64_t
+    * 
+    * @param a first operand
+    * @param b second operand
+    * @param res a * b
+    * @return true if overflow
+    */
+    static bool umul64_overflow(uint64_t a, uint64_t b, uint64_t *res) {
+        static_assert(std::is_same<uint64_t, unsigned long>::value || std::is_same<uint64_t, unsigned long long>::value, "Expecting either unsigned long or unsigned long long for uint64_t...");
+        if (std::is_same<uint64_t, unsigned long>::value) {
+            return __builtin_umull_overflow(a, b, (unsigned long *) res);
+        }
+        else if (std::is_same<uint64_t, unsigned long long >::value) {
+            return __builtin_umulll_overflow(a, b, (unsigned long long *) res);
+        }
+        *res = a * b;
+        return false;
+    }
 
 public:
     Mask() : m_charsets(), m_n_charsets(0), m_len(0) {}
@@ -56,7 +76,7 @@ public:
         if (m_n_charsets == 0) {
             m_len = m_charsets.back().getLen();
         } else {
-            if (__builtin_umull_overflow(m_len, m_charsets.back().getLen(), &m_len)) {
+            if (umul64_overflow(m_len, m_charsets.back().getLen(), &m_len)) {
                 fprintf(stderr, "Error: the length of the mask would overflow a 64 bits integer\n");
                 abort();
             }
@@ -76,7 +96,7 @@ public:
         if (m_n_charsets == 0) {
             m_len = m_charsets.back().getLen();
         } else {
-            if (__builtin_umull_overflow(m_len, m_charsets.back().getLen(), &m_len)) {
+            if (umul64_overflow(m_len, m_charsets.back().getLen(), &m_len)) {
                 fprintf(stderr, "Error: the length of the mask would overflow a 64 bits integer\n");
                 abort();
             }
@@ -97,7 +117,7 @@ public:
         if (m_n_charsets == 0) {
             m_len = m_charsets.front().getLen();
         } else {
-            if (__builtin_umull_overflow(m_len, m_charsets.front().getLen(), &m_len)) {
+            if (umul64_overflow(m_len, m_charsets.front().getLen(), &m_len)) {
                 fprintf(stderr, "Error: the length of the mask would overflow a 64 bits integer\n");
                 abort();
             }
@@ -117,7 +137,7 @@ public:
         if (m_n_charsets == 0) {
             m_len = m_charsets.front().getLen();
         } else {
-            if (__builtin_umull_overflow(m_len, m_charsets.front().getLen(), &m_len)) {
+            if (umul64_overflow(m_len, m_charsets.front().getLen(), &m_len)) {
                 fprintf(stderr, "Error: the length of the mask would overflow a 64 bits integer\n");
                 abort();
             }

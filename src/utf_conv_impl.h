@@ -16,7 +16,7 @@
 
 #include <cstdlib>
 #include <cstdint>
-#include <endian.h>
+#include "portable_endian.h"
 #include "utf_conv.h"
 
 #ifndef UTF_CONV_IMPL_H_

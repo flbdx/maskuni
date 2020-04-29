@@ -19,8 +19,9 @@ The unicode support implies that all inputs must be valid UTF-8 and the output i
 
 Maskgen requires:
 - GCC or Clang (GCC likely to produce faster code)
+- CMake
 - POSIX environment
-- Maybe only Linux or Cygwin for `<endian.h>`
+- Should build at least on Linux, Cygwin and Msys2/mingw64
 
 Building with cmake:
 ```

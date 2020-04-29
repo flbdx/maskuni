@@ -6,14 +6,19 @@ project(maskgen)
 set (MASKGEN_SOURCES
         src/ReadCharsets.cpp src/ReadMasks.cpp src/main.cpp)
 
+# sanitize default release and debug flags for clang and gcc
+# don't want -DNDEBUG on release
+# add full debug symbols, ASAN and UBSAN on debug
+if (CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  set(CMAKE_C_FLAGS_RELEASE "-O3")
+  set(CMAKE_C_FLAGS_DEBUG "-g3 -fsanitize=address -fsanitize=leak -fsanitize=undefined")
+endif()
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  # default release flags : remove -DNDEBUG (its a test project, want the asserts...) 
   set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-  # default debug flags : add sanitizer and up the debug symbols
   set(CMAKE_CXX_FLAGS_DEBUG "-g3 -fsanitize=address -fsanitize=leak -fsanitize=undefined")
 endif()
 
-# some ugly libc like msys2's don't have getline
+# some ugly libc like msys2's don't have getline even though getline is part of posix since POSIX.1-2008
 check_symbol_exists(getline "stdio.h" HAVE_GETLINE)
 if (NOT HAVE_GETLINE)
     list(APPEND MASKGEN_SOURCES lib/getdelim.c lib/getline.c)

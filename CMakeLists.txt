@@ -5,6 +5,7 @@ project(maskgen)
 set(MASKGEN_VERSION_MAJOR "0")
 set(MASKGEN_VERSION_MINOR "1")
 set(MASKGEN_VERSION_PATCH "0")
+set(MASKGEN_VERSION_STRING "${MASKGEN_VERSION_MAJOR}.${MASKGEN_VERSION_MINOR}.${MASKGEN_VERSION_PATCH}")
 
 set (MASKGEN_SOURCES
         src/ReadCharsets.cpp src/ReadMasks.cpp src/main.cpp)

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "config.h"
+
 #include <cstdio>
 #include <cstring>
 #include <cinttypes>
@@ -61,6 +63,7 @@ static void usage() {
     "  -s, --size                   Show the number of words that will be\n"
     "                               generated and exit\n"
     "  -h, --help                   Show this help message and exit\n"
+    "      --version                Show the version number and exit\n"
     "\n"
     " Charsets:\n"
     "  A charset is a named variable describing a list of characters. Unless\n"
@@ -425,6 +428,7 @@ int main(int argc, char **argv)
         {"no-delim", no_argument, NULL, 'n'},
         {"size", no_argument, NULL, 's'},
         {"help", no_argument, NULL, 'h'},
+        {"version", no_argument, NULL, 'V'},
         {"custom-charset1", required_argument, NULL, '1'},
         {"custom-charset2", required_argument, NULL, '2'},
         {"custom-charset3", required_argument, NULL, '3'},
@@ -484,6 +488,10 @@ int main(int argc, char **argv)
                 break;
             case 'h':
                 usage();
+                exit(0);
+            case 'V':
+                fprintf(stdout, "Maskgen version %s\n", MASKGEN_VERSION_STRING);
+                fprintf(stdout, "This sofware is distributed under the Apache License version 2.0\n");
                 exit(0);
             case '1':
             case '2':

@@ -280,7 +280,7 @@ int work(const struct Options &options, const char *mask_arg) {
         std::vector<T> charset;
         if (!Helper::readCharset(p.second.c_str(), charset)) {
             fprintf(stderr, "Error while reading the charset '%lc'\n", p.first);
-            exit(1);
+            return 1;
         }
         charsets[p.first] = DefaultCharset<T>(charset, false);
     }
@@ -290,7 +290,7 @@ int work(const struct Options &options, const char *mask_arg) {
         std::vector<T> charset;
         if (!Helper::parseCharsetArg(s.c_str(), key, charset)) {
             fprintf(stderr, "Error while reading the charset definition '%s'\n", s.c_str());
-            exit(1);
+            return 1;
         }
         charsets[key] = DefaultCharset<T>(charset, false);
     }
@@ -312,7 +312,7 @@ int work(const struct Options &options, const char *mask_arg) {
     MaskList<T> ml;
     if (!Helper::readMaskList(mask_arg, charsets, ml)) {
         fprintf(stderr, "Error while reading the mask definition '%s'\n", mask_arg);
-        exit(1);
+        return 1;
     }
     
     uint64_t ml_len = ml.getLen();
@@ -361,13 +361,13 @@ int work(const struct Options &options, const char *mask_arg) {
     std::vector<T> word(ml.getMaxWidth() + 1);
     if (word.size() > buffer.size()) {
         fprintf(stderr, "Error: do you reallly intend to generate words of length over %zu ?\n", buffer.size());
-        exit(1);
+        return 1;
     }
     
     // at last create the output file if needed now that we're not supposed to fail anymore
     int fdout = STDOUT_FILENO;
     if (!options.m_output_file.empty()) {
-        fdout = open(options.m_output_file.c_str(), O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR|S_IWUSR);
+        fdout = open(options.m_output_file.c_str(), O_WRONLY | O_TRUNC | O_CREAT | O_BINARY, S_IRUSR|S_IWUSR);
         if (fdout < 0) {
             fprintf(stderr, "Error: can't open the output file : %m\n");
             return 1;
@@ -413,7 +413,7 @@ int work(const struct Options &options, const char *mask_arg) {
     return 0;
 }
 
-int main(int argc, char **argv)
+int real_main(int argc, char **argv)
 {
     setlocale(LC_ALL, "");
     Options options;
@@ -449,7 +449,7 @@ int main(int argc, char **argv)
                 int r = sscanf(optarg, "%" PRIu64 "/%" PRIu64, &options.m_job_number, &options.m_job_total);
                 if (r != 2 || options.m_job_number > options.m_job_total || options.m_job_number == 0) {
                     fprintf(stderr, "Error: wrong job number specification (%s)\n", optarg);
-                    exit(1);
+                    return 1;
                 }
                 options.m_job_set = true;
             }
@@ -459,7 +459,7 @@ int main(int argc, char **argv)
                 int r = sscanf(optarg, "%" PRIu64, &options.m_start_word);
                 if (r != 1) {
                     fprintf(stderr, "Error: wrong starting word number specification (%s)\n", optarg);
-                    exit(1);
+                    return 1;
                 }
                 options.m_start_word_set = true;
             }
@@ -469,7 +469,7 @@ int main(int argc, char **argv)
                 int r = sscanf(optarg, "%" PRIu64, &options.m_end_word);
                 if (r != 1) {
                     fprintf(stderr, "Error: wrong last word number specification (%s)\n", optarg);
-                    exit(1);
+                    return 1;
                 }
                 options.m_end_word_set = true;
             }
@@ -488,11 +488,11 @@ int main(int argc, char **argv)
                 break;
             case 'h':
                 usage();
-                exit(0);
+                return 0;
             case 'V':
                 fprintf(stdout, "Maskgen version %s\n", MASKGEN_VERSION_STRING);
                 fprintf(stdout, "This sofware is distributed under the Apache License version 2.0\n");
-                exit(0);
+                return 0;
             case '1':
             case '2':
             case '3':
@@ -504,7 +504,7 @@ int main(int argc, char **argv)
                 break;
             default:
                 usage();
-                exit(1);
+                return 1;
         }
     }
     
@@ -513,7 +513,7 @@ int main(int argc, char **argv)
     
     if (argc != 1) {
         fprintf(stderr, "Error: wrong number of arguments\n");
-        exit(1);
+        return 1;
     }
     
     const char *mask_arg = argv[0];
@@ -529,3 +529,95 @@ int main(int argc, char **argv)
 
     return 0;
 }
+
+#if defined(__WINDOWS__)
+#include <windows.h>
+#include <io.h>
+
+static int restore_output_cp = CP_UTF8;
+/*
+ * Restore the original console output codepage on exit
+ * Note that this will not be called on abort() so we may still trash the console
+ */
+static void exit_restore_output_cp() {
+    SetConsoleOutputCP(restore_output_cp);
+}
+
+/* For the Windows version:
+ * - set the console output codepage to UTF-8
+ * - set stdout as binary to disable the destroying of \n into \r\n
+ * - call the standard main
+ */
+int main(int argc, char **argv) {
+    restore_output_cp = GetConsoleOutputCP();
+    if (restore_output_cp != CP_UTF8) {
+        SetConsoleOutputCP(CP_UTF8);
+        atexit(&exit_restore_output_cp);
+    }
+    _setmode(_fileno(stdout), _O_BINARY);
+
+    int r = real_main(argc, argv);
+
+    return r;
+}
+
+#if defined(UNICODE)
+
+/* For the unicode Windows version:
+ * - set the console output codepage to UTF-8
+ * - set stdout as binary to disable the destroying of \n into \r\n
+ * - convert the UTF-16 arguments into UTF-8
+ * - call the standard main
+ */
+int wmain(int argc, wchar_t **argv) {
+    restore_output_cp = GetConsoleOutputCP();
+    if (restore_output_cp != CP_UTF8) {
+        SetConsoleOutputCP(CP_UTF8);
+        atexit(&exit_restore_output_cp);
+    }
+    _setmode(_fileno(stdout), _O_BINARY);
+
+    char ** argv_utf8 = (char **) malloc((argc + 1) * sizeof(char *));
+    for (int i = 0; i < argc; i++) {
+        argv_utf8[i] = NULL;
+    }
+    argv_utf8[argc] = NULL;
+
+    int r = 0;
+
+    for (int i = 0; i < argc; i++) {
+        int conv_size = WideCharToMultiByte(CP_UTF8, 0, argv[i], -1, NULL, 0, NULL, NULL);
+        if (conv_size == 0) {
+            fprintf(stderr, "Error: can't decode the input parameters (reading Windows console UTF-16)\n");
+            r = 1;
+            goto clean_exit;
+        }
+        argv_utf8[i] = (char *) malloc(conv_size);
+        conv_size = WideCharToMultiByte(CP_UTF8, 0, argv[i], -1, argv_utf8[i], conv_size, NULL, NULL);
+        if (conv_size == 0) {
+            fprintf(stderr, "Error: can't decode the input parameters (reading Windows console UTF-16)\n");
+            r = 1;
+            goto clean_exit;
+        }
+    }
+
+    r = real_main(argc, argv_utf8);
+
+clean_exit:
+    for (int i = 0; i < argc; i++) {
+        free(argv_utf8[i]);
+    }
+    free(argv_utf8);
+
+    return r;
+}
+
+#endif /* UNICODE */
+
+#else /* !WINDOWS */
+
+int main(int argc, char **argv) {
+    return real_main(argc, argv);
+}
+
+#endif /* WINDOWS */

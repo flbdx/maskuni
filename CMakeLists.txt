@@ -43,6 +43,10 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU
   # additional warnings
   target_compile_options(maskgen PRIVATE -Wall -Wextra)
   set_target_properties(maskgen PROPERTIES LINK_FLAGS_RELEASE -static)
+  if (WIN32)
+    target_compile_options(maskgen PRIVATE -municode)
+    set_target_properties(maskgen PROPERTIES LINK_FLAGS -municode)
+  endif()
 endif()
 
 install(TARGETS maskgen RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

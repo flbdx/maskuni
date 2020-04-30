@@ -367,7 +367,11 @@ int work(const struct Options &options, const char *mask_arg) {
     // at last create the output file if needed now that we're not supposed to fail anymore
     int fdout = STDOUT_FILENO;
     if (!options.m_output_file.empty()) {
+#if defined(__WINDOWS__)
         fdout = open(options.m_output_file.c_str(), O_WRONLY | O_TRUNC | O_CREAT | O_BINARY, S_IRUSR|S_IWUSR);
+#else
+        fdout = open(options.m_output_file.c_str(), O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR|S_IWUSR);
+#endif
         if (fdout < 0) {
             fprintf(stderr, "Error: can't open the output file : %m\n");
             return 1;

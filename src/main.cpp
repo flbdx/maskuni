@@ -268,6 +268,43 @@ struct HelperUnicode {
     }
 };
 
+#if defined(__WINDOWS__)
+/*
+ * Mingw doesn't seem to use a fast builtin memcpy
+ * Instead we have an impressively slow one from MS runtime
+ * This simple memcpy is faster...
+ */
+static void *my_memcpy(void * __restrict dest, const void * __restrict src, size_t n) {
+    union P {
+        uint64_t *p64;
+        uint32_t *p32;
+        uint8_t *p8;
+        P(void *p) : p64(reinterpret_cast<uint64_t *>(p)) {}
+    };
+    union CP {
+        const uint64_t *p64;
+        const uint32_t *p32;
+        const uint8_t *p8;
+        CP(const void *p) : p64(reinterpret_cast<const uint64_t *>(p)) {}
+    };
+    P d(dest);
+    CP s(src);
+    while (n > sizeof(uint64_t)) {
+        *d.p64++ = *s.p64++;
+        n -= sizeof(uint64_t);
+    }
+    while (n > sizeof(uint32_t)) {
+        *d.p32++ = *s.p32++;
+        n -= sizeof(uint32_t);
+    }
+    while (n > 0) {
+        *d.p8++ = *s.p8++;
+        n --;
+    }
+    return dest;
+}
+#endif /* __WINDOWS__ */
+
 template<typename T>
 int work(const struct Options &options, const char *mask_arg) {
     static_assert(std::is_same<T, char>::value || std::is_same<T, uint32_t>::value, "word requires char or uint32_t as template parameter");
@@ -394,7 +431,11 @@ int work(const struct Options &options, const char *mask_arg) {
             buffer_p = buffer.data();
         }
         
+#if defined(__WINDOWS__)
+        my_memcpy(buffer_p, word.data(), sizeof(T) * (w + delim_width));
+#else
         memcpy(buffer_p, word.data(), sizeof(T) * (w + delim_width));
+#endif
         buffer_p += w + delim_width;
     }
     // following words, use MaskList::getNext
@@ -406,7 +447,11 @@ int work(const struct Options &options, const char *mask_arg) {
             buffer_p = buffer.data();
         }
         
+#if defined(__WINDOWS__)
+        my_memcpy(buffer_p, word.data(), sizeof(T) * (w + delim_width));
+#else
         memcpy(buffer_p, word.data(), sizeof(T) * (w + delim_width));
+#endif
         buffer_p += w + delim_width;
     }
     

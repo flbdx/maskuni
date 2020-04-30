@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.0)
+enable_language(C)
+enable_language(CXX)
 include(CheckSymbolExists)
+include(GNUInstallDirs)
 
 project(maskgen)
 set(MASKGEN_VERSION_MAJOR "0")
@@ -16,10 +19,12 @@ set (MASKGEN_SOURCES
 if (CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set(CMAKE_C_FLAGS_RELEASE "-O3")
   set(CMAKE_C_FLAGS_DEBUG "-g3 -fsanitize=address -fsanitize=leak -fsanitize=undefined")
+  set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O3 -g3")
 endif()
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set(CMAKE_CXX_FLAGS_RELEASE "-O3")
   set(CMAKE_CXX_FLAGS_DEBUG "-g3 -fsanitize=address -fsanitize=leak -fsanitize=undefined")
+  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g3")
 endif()
 
 # some ugly libc like msys2's don't have getline even though getline is part of posix since POSIX.1-2008
@@ -37,12 +42,15 @@ target_compile_features(maskgen PUBLIC cxx_std_11)
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   # additional warnings
   target_compile_options(maskgen PRIVATE -Wall -Wextra)
+  set_target_properties(maskgen PROPERTIES LINK_FLAGS_RELEASE -static)
 endif()
 
-install(TARGETS maskgen RUNTIME DESTINATION bin)
+install(TARGETS maskgen RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES "${CMAKE_SOURCE_DIR}/LICENSE" "${CMAKE_SOURCE_DIR}/README.md" DESTINATION ${CMAKE_INSTALL_DOCDIR})
 
 
 set(CPACK_SOURCE_GENERATOR "TGZ")
+set(CPACK_GENERATOR "TGZ")
 set(CPACK_PACKAGE_VERSION "${MASKGEN_VERSION_MAJOR}.${MASKGEN_VERSION_MINOR}.${MASKGEN_VERSION_PATCH}")
 set(CPACK_PACKAGE_VERSION_MAJOR "${MASKGEN_VERSION_MAJOR}")
 set(CPACK_PACKAGE_VERSION_MINOR "${MASKGEN_VERSION_MINOR}")

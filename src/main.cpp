@@ -268,10 +268,10 @@ struct HelperUnicode {
     }
 };
 
-#if defined(__WINDOWS__)
+#if defined(__WINDOWS__) || defined(__CYGWIN__)
 /*
- * Mingw doesn't seem to use a fast builtin memcpy
- * Instead we have an impressively slow one from MS runtime
+ * For msys2/mingw64 or cygwin, gcc doesn't seem to use a fast builtin memcpy
+ * Instead we have a slow one from the MS runtime, and an extra potato one from cygwin1.dll
  * This simple memcpy is faster...
  */
 static void *my_memcpy(void * __restrict dest, const void * __restrict src, size_t n) {
@@ -303,7 +303,7 @@ static void *my_memcpy(void * __restrict dest, const void * __restrict src, size
     }
     return dest;
 }
-#endif /* __WINDOWS__ */
+#endif /* __WINDOWS__ || __CYGWIN__ */
 
 template<typename T>
 int work(const struct Options &options, const char *mask_arg) {
@@ -431,7 +431,7 @@ int work(const struct Options &options, const char *mask_arg) {
             buffer_p = buffer.data();
         }
         
-#if defined(__WINDOWS__)
+#if defined(__WINDOWS__) || defined(__CYGWIN__)
         my_memcpy(buffer_p, word.data(), sizeof(T) * (w + delim_width));
 #else
         memcpy(buffer_p, word.data(), sizeof(T) * (w + delim_width));
@@ -447,7 +447,7 @@ int work(const struct Options &options, const char *mask_arg) {
             buffer_p = buffer.data();
         }
         
-#if defined(__WINDOWS__)
+#if defined(__WINDOWS__) || defined(__CYGWIN__)
         my_memcpy(buffer_p, word.data(), sizeof(T) * (w + delim_width));
 #else
         memcpy(buffer_p, word.data(), sizeof(T) * (w + delim_width));

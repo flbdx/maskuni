@@ -60,10 +60,10 @@ static std::vector<T> expandCharset(const std::vector<T> &charset, const Charset
                             it = lcharset.erase(it);
                             it = lcharset.erase(it);
                             if (std::count(keys_history.begin(), keys_history.end(), key) == 0) {
+                                keys_history.push_back(key);
                                 it = lcharset.insert(it, repl_it->second.cset.begin(), repl_it->second.cset.end());
                                 if (!repl_it->second.final) {
                                     queue.emplace_back(it, repl_it->second.cset.size());
-                                    keys_history.push_back(key);
                                 }
                                 it = std::next(it, repl_it->second.cset.size());
                             }

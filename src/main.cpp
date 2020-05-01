@@ -289,11 +289,11 @@ static void *my_memcpy(void * __restrict dest, const void * __restrict src, size
     };
     P d(dest);
     CP s(src);
-    while (n > sizeof(uint64_t)) {
+    while (n >= sizeof(uint64_t)) {
         *d.p64++ = *s.p64++;
         n -= sizeof(uint64_t);
     }
-    while (n > sizeof(uint32_t)) {
+    while (n >= sizeof(uint32_t)) {
         *d.p32++ = *s.p32++;
         n -= sizeof(uint32_t);
     }

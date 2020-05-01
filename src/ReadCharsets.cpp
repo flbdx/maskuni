@@ -124,7 +124,11 @@ void initDefaultCharsetsUnicode(CharsetMapUnicode &charsets)
 }
 
 bool readCharsetAscii(const char *spec, std::vector<char> &charset) {
+#if defined(__WINDOWS__) || defined(__CYGWIN__)
+    int fd = open(spec, O_RDONLY | O_BINARY);
+#else
     int fd = open(spec, O_RDONLY);
+#endif
     if (fd >= 0) {
         struct stat st;
         if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode)) {
@@ -171,7 +175,11 @@ bool readCharsetAscii(const char *spec, std::vector<char> &charset) {
 }
 
 bool readCharsetUtf8(const char *spec, std::vector<uint32_t> &charset) {
+#if defined(__WINDOWS__) || defined(__CYGWIN__)
+    int fd = open(spec, O_RDONLY | O_BINARY);
+#else
     int fd = open(spec, O_RDONLY);
+#endif
     if (fd >= 0) {
         struct stat st;
         if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode)) {

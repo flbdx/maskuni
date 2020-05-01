@@ -148,7 +148,11 @@ static bool readMaskLine(const T *line, size_t line_len, const CharsetMap<T> &ch
 
 bool readMaskListAscii(const char *spec, const CharsetMapAscii &charsets, MaskList<char> &ml)
 {
+#if defined(__WINDOWS__) || defined(__CYGWIN__)
+    int fd = open(spec, O_RDONLY | O_BINARY);
+#else
     int fd = open(spec, O_RDONLY);
+#endif
     if (fd >= 0) {
         struct stat st;
         if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode)) {
@@ -199,7 +203,11 @@ bool readMaskListAscii(const char *spec, const CharsetMapAscii &charsets, MaskLi
 
 bool readMaskListUtf8(const char *spec, const CharsetMapUnicode &charsets, MaskList<uint32_t> &ml)
 {
+#if defined(__WINDOWS__) || defined(__CYGWIN__)
+    int fd = open(spec, O_RDONLY | O_BINARY);
+#else
     int fd = open(spec, O_RDONLY);
+#endif
     if (fd >= 0) {
         struct stat st;
         if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode)) {

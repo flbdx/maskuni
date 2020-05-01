@@ -199,6 +199,12 @@ struct Helper8bit {
     {
         return readMaskListAscii(spec, default_charsets, ml);
     }
+    static constexpr int maxCharReprLen = 2;
+    static void charToString(char c, char *str)
+    {
+        str[0] = c;
+        str[1] = 0;
+    }
 };
 
 struct HelperUnicode {
@@ -266,6 +272,12 @@ struct HelperUnicode {
     {
         return readMaskListUtf8(spec, default_charsets, ml);
     }
+    static constexpr int maxCharReprLen = 5;
+    static void charToString(uint32_t c, char *str)
+    {
+        int l = UTF::impl::CpToUtf8::write(c, str);
+        str[l] = 0;
+    }
 };
 
 #if defined(__WINDOWS__) || defined(__CYGWIN__)
@@ -316,7 +328,9 @@ int work(const struct Options &options, const char *mask_arg) {
     for (auto p : options.m_charsets_short_defs) {
         std::vector<T> charset;
         if (!Helper::readCharset(p.second.c_str(), charset)) {
-            fprintf(stderr, "Error while reading the charset '%lc'\n", p.first);
+            char s_charset[Helper::maxCharReprLen];
+            Helper::charToString(p.first, s_charset);
+            fprintf(stderr, "Error while reading the charset '%s'\n", s_charset);
             return 1;
         }
         charsets[p.first] = DefaultCharset<T>(charset, false);
@@ -339,7 +353,9 @@ int work(const struct Options &options, const char *mask_arg) {
         }
         p.second.cset = Helper::expandCharset(p.second.cset, charsets, p.first);
         if (p.second.cset.empty()) {
-            fprintf(stderr, "Error while expanding the charset '%lc' (undefined charset ?)\n", p.first);
+            char s_charset[Helper::maxCharReprLen];
+            Helper::charToString(p.first, s_charset);
+            fprintf(stderr, "Error while expanding the charset '%s' (undefined charset ?)\n", s_charset);
             return 1;
         }
         p.second.final = true;

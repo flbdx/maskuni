@@ -45,8 +45,11 @@ struct DefaultCharset {
 
 /**
  * @brief A map charset name -> charset
+ * 
+ * If more than one definition for a charset is pushed, then the last one
+ * will be used and may reference the previous definition
  */
-template<typename T> using CharsetMap = std::map<T, DefaultCharset<T>>;
+template<typename T> using CharsetMap = std::multimap<T, DefaultCharset<T>>;
 typedef CharsetMap<char> CharsetMapAscii;
 typedef CharsetMap<uint32_t> CharsetMapUnicode;
 

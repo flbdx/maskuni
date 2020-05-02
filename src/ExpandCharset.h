@@ -21,7 +21,7 @@
 #include <list>
 
 namespace Maskgen {
-
+    
 template<typename T, T escapeChar = T('?')>
 static std::vector<T> expandCharset(const std::vector<T> &charset, const CharsetMap<T> &default_charsets, T charset_name)
 {
@@ -33,13 +33,16 @@ static std::vector<T> expandCharset(const std::vector<T> &charset, const Charset
     // we can't use an iterator for the end of the range since it may be invalidated
     // the starting iterator is never invalidated during the loop
     std::list<std::pair<literator, size_t>> queue;
-    std::list<T> keys_history;
+    // store the keys that where previously seen before expanding the ranges defined in 'queue'
+    std::list<std::list<T> > keys_histories;
     queue.emplace_back(lcharset.begin(), lcharset.size());
-    keys_history.push_back(charset_name);
+    keys_histories.push_back({charset_name});
     
     while (!queue.empty()) {
         auto boundaries = queue.back();
+        auto keys_history = keys_histories.back();
         queue.pop_back();
+        keys_histories.pop_back();
         
         size_t n_chars = 0;
         for (auto it = boundaries.first; n_chars != boundaries.second; ) {
@@ -55,19 +58,28 @@ static std::vector<T> expandCharset(const std::vector<T> &charset, const Charset
                         it ++;
                         
                     } else {
-                        auto repl_it = default_charsets.find(key);
-                        if (repl_it != default_charsets.end()) {
+                        int n_repl_avail = default_charsets.count(key);
+                        if (n_repl_avail != 0) {
                             it = lcharset.erase(it);
                             it = lcharset.erase(it);
-                            if (std::count(keys_history.begin(), keys_history.end(), key) == 0) {
-                                it = lcharset.insert(it, repl_it->second.cset.begin(), repl_it->second.cset.end());
-                                if (!repl_it->second.final) {
-                                    queue.emplace_back(it, repl_it->second.cset.size());
-                                    keys_history.push_back(key);
+                            int n_replaced = std::count(keys_history.begin(), keys_history.end(), key);
+                            if (n_replaced < n_repl_avail) {
+                                auto it_repl = default_charsets.upper_bound(key);
+                                auto rit_repl = std::reverse_iterator<decltype(it_repl)>(it_repl);
+                                std::advance(rit_repl, n_replaced);
+                                it = lcharset.insert(it, rit_repl->second.cset.begin(), rit_repl->second.cset.end());
+                                if (!rit_repl->second.final) {
+                                    keys_histories.emplace_back(keys_history);
+                                    keys_histories.back().push_back(key);
+                                    queue.emplace_back(it, rit_repl->second.cset.size());
                                 }
-                                it = std::next(it, repl_it->second.cset.size());
+                                it = std::next(it, rit_repl->second.cset.size());
                             }
-                        } else {
+                            else {
+                                // can't recurse anymore
+                            }
+                        }
+                        else {
                             // no charset found, fatal. returns empty charset
                             return std::vector<T>();
                         }
@@ -79,8 +91,6 @@ static std::vector<T> expandCharset(const std::vector<T> &charset, const Charset
                 n_chars++;
             }
         }
-        
-        keys_history.pop_back();
     }
     
     // remove duplicates

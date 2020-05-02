@@ -50,8 +50,9 @@ static Mask<T> readMask(const std::vector<T> &str, const CharsetMap<T> &defined_
                 mask.push_charset_right(&(str[i]), 1);
             }
             else {
-                auto it_charset = defined_charsets.find(key);
-                if (it_charset != defined_charsets.end()) {
+                auto it_range = defined_charsets.equal_range(key);
+                if (it_range.first != defined_charsets.end()) {
+                    auto it_charset = std::prev(it_range.second);
                     mask.push_charset_right(it_charset->second.cset.data(), it_charset->second.cset.size());
                 }
                 else {
@@ -84,7 +85,7 @@ static Mask<T> readMask(const std::vector<T> &str, const CharsetMap<T> &defined_
  */
 template<typename T, T escapeChar = T('?'), T separatorChar = T(',')>
 static bool readMaskLine(const T *line, size_t line_len, const CharsetMap<T> &charsets, MaskList<T> &ml) {
-    std::map<T, DefaultCharset<T>> effective_charsets = charsets;
+    CharsetMap<T> effective_charsets = charsets;
                 
     std::vector<std::vector<T>> tokens;
     tokens.resize(1);
@@ -127,8 +128,10 @@ static bool readMaskLine(const T *line, size_t line_len, const CharsetMap<T> &ch
             return false;
         }
         T charset_key = T('1' + n);
-        effective_charsets[charset_key].cset = tokens[n];
-        effective_charsets[charset_key].final = false;
+        typename decltype(effective_charsets)::mapped_type new_charset;
+        new_charset.cset = tokens[n];
+        new_charset.final = false;
+        effective_charsets.insert(std::make_pair(charset_key, new_charset));
     }
     
     // now expand all the user defined charsets
@@ -138,12 +141,13 @@ static bool readMaskLine(const T *line, size_t line_len, const CharsetMap<T> &ch
             continue;
         }
         T charset_key = T('1' + n);
-        effective_charsets[charset_key].cset = expandCharset<T>(effective_charsets[charset_key].cset, effective_charsets, charset_key);
-        if (effective_charsets[charset_key].cset.empty()) {
+        auto it = std::prev(effective_charsets.upper_bound(charset_key));
+        it->second.cset = expandCharset<T>(it->second.cset, effective_charsets, charset_key);
+        if (it->second.cset.empty()) {
             fprintf(stderr, "Error while reading the inline custom charset '%c'\n", (int) charset_key);
             return false;
         }
-        effective_charsets[charset_key].final = true;
+        it->second.final = true;
     }
     
     Mask<T> mask = readMask<T>(tokens.back(), effective_charsets);

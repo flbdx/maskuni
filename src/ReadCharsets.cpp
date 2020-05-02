@@ -69,58 +69,68 @@ std::vector<uint32_t> expandCharsetUnicode(const std::vector<uint32_t> &charset,
 
 void initDefaultCharsetsAscii(CharsetMapAscii &charsets)
 {
-    charsets['l'] = DefaultCharset<char>(default_charset_l, 26, true);
-    charsets['u'] = DefaultCharset<char>(default_charset_u, 26, true);
-    charsets['d'] = DefaultCharset<char>(default_charset_d, 10, true);
-    charsets['s'] = DefaultCharset<char>(default_charset_s, sizeof(default_charset_s) - 1, true);
-    charsets['h'] = DefaultCharset<char>(default_charset_h, 16, true);
-    charsets['H'] = DefaultCharset<char>(default_charset_H, 16, true);
-    charsets['b'] = DefaultCharset<char>((const char *) default_charset_b, 256, true);
-    charsets['n'] = DefaultCharset<char>(default_charset_n, 1, true);
-    charsets['r'] = DefaultCharset<char>(default_charset_r, 1, true);
-    charsets['a'] = DefaultCharset<char>(default_charset_a, sizeof(default_charset_a) - 1, false);
-//     charsets['a'].cset = expandCharsetAscii(charsets['a'].cset, charsets, 'a');
+    charsets.clear();
+    charsets.insert(std::make_pair('l', DefaultCharset<char>(default_charset_l, 26, true)));
+    charsets.insert(std::make_pair('u', DefaultCharset<char>(default_charset_u, 26, true)));
+    charsets.insert(std::make_pair('d', DefaultCharset<char>(default_charset_d, 10, true)));
+    charsets.insert(std::make_pair('s', DefaultCharset<char>(default_charset_s, sizeof(default_charset_s) - 1, true)));
+    charsets.insert(std::make_pair('h', DefaultCharset<char>(default_charset_h, 16, true)));
+    charsets.insert(std::make_pair('H', DefaultCharset<char>(default_charset_H, 16, true)));
+    charsets.insert(std::make_pair('b', DefaultCharset<char>((const char *) default_charset_b, 256, true)));
+    charsets.insert(std::make_pair('n', DefaultCharset<char>(default_charset_n, 1, true)));
+    charsets.insert(std::make_pair('r', DefaultCharset<char>(default_charset_r, 1, true)));
+    charsets.insert(std::make_pair('a', DefaultCharset<char>(default_charset_a, sizeof(default_charset_a) - 1, false)));
 }
 
 void initDefaultCharsetsUnicode(CharsetMapUnicode &charsets)
 {
+    charsets.clear();
     size_t consumed = 0, written = 0;
-    charsets['l'].cset.clear();
-    UTF::decode_utf8(default_charset_l, 26, std::back_inserter(charsets['l'].cset), &consumed, &written);
-    charsets['l'].final = true;
     
-    charsets['u'].cset.clear();
-    UTF::decode_utf8(default_charset_u, 26, std::back_inserter(charsets['u'].cset), &consumed, &written);
-    charsets['u'].final = true;
+    CharsetMapUnicode::mapped_type charset_l;
+    UTF::decode_utf8(default_charset_l, 26, std::back_inserter(charset_l.cset), &consumed, &written);
+    charset_l.final = true;
+    charsets.insert(std::make_pair('l', charset_l));
     
-    charsets['d'].cset.clear();
-    UTF::decode_utf8(default_charset_d, 10, std::back_inserter(charsets['d'].cset), &consumed, &written);
-    charsets['d'].final = true;
+    CharsetMapUnicode::mapped_type charset_u;
+    UTF::decode_utf8(default_charset_u, 26, std::back_inserter(charset_u.cset), &consumed, &written);
+    charset_u.final = true;
+    charsets.insert(std::make_pair('u', charset_u));
     
-    charsets['s'].cset.clear();
-    UTF::decode_utf8(default_charset_s, sizeof(default_charset_s) - 1, std::back_inserter(charsets['s'].cset), &consumed, &written);
-    charsets['s'].final = true;
+    CharsetMapUnicode::mapped_type charset_d;
+    UTF::decode_utf8(default_charset_d, 10, std::back_inserter(charset_d.cset), &consumed, &written);
+    charset_d.final = true;
+    charsets.insert(std::make_pair('d', charset_d));
     
-    charsets['h'].cset.clear();
-    UTF::decode_utf8(default_charset_h, 16, std::back_inserter(charsets['h'].cset), &consumed, &written);
-    charsets['h'].final = true;
+    CharsetMapUnicode::mapped_type charset_s;
+    UTF::decode_utf8(default_charset_s, sizeof(default_charset_s) - 1, std::back_inserter(charset_s.cset), &consumed, &written);
+    charset_s.final = true;
+    charsets.insert(std::make_pair('s', charset_s));
     
-    charsets['H'].cset.clear();
-    UTF::decode_utf8(default_charset_H, 16, std::back_inserter(charsets['H'].cset), &consumed, &written);
-    charsets['H'].final = true;
+    CharsetMapUnicode::mapped_type charset_h;
+    UTF::decode_utf8(default_charset_h, 16, std::back_inserter(charset_h.cset), &consumed, &written);
+    charset_h.final = true;
+    charsets.insert(std::make_pair('h', charset_h));
     
-    charsets['n'].cset.clear();
-    UTF::decode_utf8(default_charset_n, 1, std::back_inserter(charsets['n'].cset), &consumed, &written);
-    charsets['n'].final = true;
+    CharsetMapUnicode::mapped_type charset_H;
+    UTF::decode_utf8(default_charset_H, 16, std::back_inserter(charset_H.cset), &consumed, &written);
+    charset_H.final = true;
+    charsets.insert(std::make_pair('H', charset_H));
     
-    charsets['r'].cset.clear();
-    UTF::decode_utf8(default_charset_r, 1, std::back_inserter(charsets['r'].cset), &consumed, &written);
-    charsets['r'].final = true;
+    CharsetMapUnicode::mapped_type charset_n;
+    UTF::decode_utf8(default_charset_n, 1, std::back_inserter(charset_n.cset), &consumed, &written);
+    charset_n.final = true;
+    charsets.insert(std::make_pair('n', charset_n));
     
-    charsets['a'].cset.clear();
-    UTF::decode_utf8(default_charset_a, sizeof(default_charset_a) - 1, std::back_inserter(charsets['a'].cset), &consumed, &written);
-//     charsets['a'].cset = expandCharsetUnicode(charsets['a'].cset, charsets, uint32_t('a'));
-    charsets['a'].final = false;
+    CharsetMapUnicode::mapped_type charset_r;
+    UTF::decode_utf8(default_charset_r, 1, std::back_inserter(charset_r.cset), &consumed, &written);
+    charset_r.final = true;
+    charsets.insert(std::make_pair('r', charset_r));
+    
+    CharsetMapUnicode::mapped_type charset_a;
+    UTF::decode_utf8(default_charset_a, sizeof(default_charset_a) - 1, std::back_inserter(charset_a.cset), &consumed, &written);
+    charset_a.final = false;
+    charsets.insert(std::make_pair('a', charset_a));
 }
 
 bool readCharsetAscii(const char *spec, std::vector<char> &charset) {

@@ -333,7 +333,7 @@ int work(const struct Options &options, const char *mask_arg) {
             fprintf(stderr, "Error while reading the charset '%s'\n", s_charset);
             return 1;
         }
-        charsets[p.first] = DefaultCharset<T>(charset, false);
+        charsets.insert(std::make_pair(p.first, DefaultCharset<T>(charset, false)));
     }
     // create the charsets from the "-c" command line arguments
     for (const auto &s : options.m_charsets_long_defs) {
@@ -343,7 +343,7 @@ int work(const struct Options &options, const char *mask_arg) {
             fprintf(stderr, "Error while reading the charset definition '%s'\n", s.c_str());
             return 1;
         }
-        charsets[key] = DefaultCharset<T>(charset, false);
+        charsets.insert(std::make_pair(key, DefaultCharset<T>(charset, false)));
     }
     
     // expand all the unexpanded charsets

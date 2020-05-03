@@ -57,14 +57,14 @@ static const unsigned char default_charset_b[256] = {
     0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, 0xF9, 0xFA, 0xFB, 0xFC, 0xFD, 0xFE, 0xFF
 };
 
-std::vector<char> expandCharsetAscii(const std::vector<char> &charset, const CharsetMapAscii &default_charsets, char charset_name)
+bool expandCharsetAscii(CharsetMapAscii & charsets, char charset_name)
 {
-    return expandCharset<char>(charset, default_charsets, charset_name);
+    return expandCharset<char>(charsets, charset_name);
 }
 
-std::vector<uint32_t> expandCharsetUnicode(const std::vector<uint32_t> &charset, const CharsetMapUnicode &default_charsets, uint32_t charset_name)
+bool expandCharsetUnicode(CharsetMapUnicode & charsets, char charset_name)
 {
-    return expandCharset<uint32_t>(charset, default_charsets, charset_name);
+    return expandCharset<uint32_t>(charsets, charset_name);
 }
 
 void initDefaultCharsetsAscii(CharsetMapAscii &charsets)

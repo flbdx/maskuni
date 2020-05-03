@@ -137,17 +137,11 @@ static bool readMaskLine(const T *line, size_t line_len, const CharsetMap<T> &ch
     // now expand all the user defined charsets
     // expandCharset checks for recursive charset definitions so we can safely expand all the user defined charsets
     for (size_t n = 0; n + 1 < tokens.size(); n++) {
-        if (tokens[n].size() == 0) {
-            continue;
-        }
         T charset_key = T('1' + n);
-        auto it = std::prev(effective_charsets.upper_bound(charset_key));
-        it->second.cset = expandCharset<T>(it->second.cset, effective_charsets, charset_key);
-        if (it->second.cset.empty()) {
+        if (!expandCharset<T>(effective_charsets, charset_key)) {
             fprintf(stderr, "Error while reading the inline custom charset '%c'\n", (int) charset_key);
             return false;
         }
-        it->second.final = true;
     }
     
     Mask<T> mask = readMask<T>(tokens.back(), effective_charsets);

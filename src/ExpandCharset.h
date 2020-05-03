@@ -21,12 +21,26 @@
 #include <list>
 
 namespace Maskgen {
-    
+
 template<typename T, T escapeChar = T('?')>
-static std::vector<T> expandCharset(const std::vector<T> &charset, const CharsetMap<T> &default_charsets, T charset_name)
+bool expandCharset(CharsetMap<T> &charsets, T charset_name)
 {
+    // get the charsets matching charset_name
+    auto charsets_range = charsets.equal_range(charset_name);
+    if (charsets_range.first == charsets.end()) {
+        // none found!
+        return false;
+    }
+    
+    // last charset matching charset_name
+    typename CharsetMap<T>::mapped_type &charset = std::prev(charsets_range.second)->second;
+    
+    if (charset.final) {
+        return true;
+    }
+    
     // working with a list allows fast random insert and erase without invalidating iterators (except iterators on erased elements...)
-    std::list<T> lcharset(charset.begin(), charset.end());
+    std::list<T> lcharset(charset.cset.begin(), charset.cset.end());
     typedef typename decltype(lcharset)::iterator literator;
     
     // store a range of chars to read, with starting iterator and length
@@ -58,30 +72,32 @@ static std::vector<T> expandCharset(const std::vector<T> &charset, const Charset
                         it ++;
                         
                     } else {
-                        int n_repl_avail = default_charsets.count(key);
+                        int n_repl_avail = charsets.count(key); // how many definitions of the charset are available
                         if (n_repl_avail != 0) {
                             it = lcharset.erase(it);
                             it = lcharset.erase(it);
+                            // the number of times we already expanded this charset name
                             int n_replaced = std::count(keys_history.begin(), keys_history.end(), key);
+                            // if we still have more previous definition to use
                             if (n_replaced < n_repl_avail) {
-                                auto it_repl = default_charsets.upper_bound(key);
-                                auto rit_repl = std::reverse_iterator<decltype(it_repl)>(it_repl);
-                                std::advance(rit_repl, n_replaced);
-                                it = lcharset.insert(it, rit_repl->second.cset.begin(), rit_repl->second.cset.end());
-                                if (!rit_repl->second.final) {
+                                auto it_repl = charsets.upper_bound(key);// upper_bound is past the last definition
+                                std::advance(it_repl, -(1 + n_replaced));
+                                it = lcharset.insert(it, it_repl->second.cset.begin(), it_repl->second.cset.end());
+                                if (!it_repl->second.final) {
                                     keys_histories.emplace_back(keys_history);
                                     keys_histories.back().push_back(key);
-                                    queue.emplace_back(it, rit_repl->second.cset.size());
+                                    queue.emplace_back(it, it_repl->second.cset.size());
                                 }
-                                it = std::next(it, rit_repl->second.cset.size());
+                                it = std::next(it, it_repl->second.cset.size());
                             }
                             else {
-                                // can't recurse anymore
+                                // can't recurse anymore, make it fatal
+                                return false;
                             }
                         }
                         else {
-                            // no charset found, fatal. returns empty charset
-                            return std::vector<T>();
+                            // no charset found, fatal.
+                            return false;
                         }
                     }
                     n_chars += 2;
@@ -102,7 +118,9 @@ static std::vector<T> expandCharset(const std::vector<T> &charset, const Charset
         }
     }
     
-    return std::vector<T>(lcharset.begin(), lcharset.end());
+    charset.cset = std::vector<T>(lcharset.begin(), lcharset.end());
+    charset.final = true;
+    return true;
 }
 
 }

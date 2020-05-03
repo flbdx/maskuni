@@ -191,9 +191,9 @@ struct Helper8bit {
         key = spec[0];
         return readCharsetAscii(spec + 2, charset);
     }
-    static inline std::vector<char> expandCharset(const std::vector<char> &charset, const CharsetMap<char> &default_charsets, char charset_name)
+    static inline bool expandCharset(CharsetMap<char> &charsets, char charset_name)
     {
-        return expandCharsetAscii(charset, default_charsets, charset_name);
+        return expandCharsetAscii(charsets, charset_name);
     }
     static inline bool readMaskList(const char *spec, const CharsetMap<char> &default_charsets, MaskList<char> &ml)
     {
@@ -264,9 +264,9 @@ struct HelperUnicode {
         
         return readCharsetUtf8(spec, charset);
     }
-    static inline std::vector<uint32_t> expandCharset(const std::vector<uint32_t> &charset, const CharsetMap<uint32_t> &default_charsets, uint32_t charset_name)
+    static inline bool expandCharset(CharsetMap<uint32_t> &charsets, uint32_t charset_name)
     {
-        return expandCharsetUnicode(charset, default_charsets, charset_name);
+        return expandCharsetUnicode(charsets, charset_name);
     }
     static inline bool readMaskList(const char *spec, const CharsetMap<uint32_t> &default_charsets, MaskList<uint32_t> &ml)
     {
@@ -347,18 +347,13 @@ int work(const struct Options &options, const char *mask_arg) {
     }
     
     // expand all the unexpanded charsets
-    for (auto &p : charsets) {
-        if (p.second.final) {
-            continue;
-        }
-        p.second.cset = Helper::expandCharset(p.second.cset, charsets, p.first);
-        if (p.second.cset.empty()) {
+    for (const auto &p : charsets) {
+        if (!Helper::expandCharset(charsets, p.first)) {
             char s_charset[Helper::maxCharReprLen];
             Helper::charToString(p.first, s_charset);
-            fprintf(stderr, "Error while expanding the charset '%s' (undefined charset ?)\n", s_charset);
+            fprintf(stderr, "Error while expanding the charset '%s' (maybe an undefined charset ?)\n", s_charset);
             return 1;
         }
-        p.second.final = true;
     }
     
     // now read our masks

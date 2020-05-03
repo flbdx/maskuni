@@ -54,38 +54,40 @@ typedef CharsetMap<char> CharsetMapAscii;
 typedef CharsetMap<uint32_t> CharsetMapUnicode;
 
 /**
- * @brief Expand an 8-bit charset replacing all the charset references (?X) by their values, then unify the charset
- * This function is protected against recursive charsets definition. The \a charset_name
- * parameter is used for this protection
+ * @brief Expand an 8-bit charset replacing all the charset references (?X) by their values, then uniquify the charset.
+ * Only the last pushed charsets matching \a charset_name is expanded.
+ * When a charset references itself, the previous definition in \a charsets is used if any.
+ * For example pushing 'l' = '?l0123' results in 'l' = 'abcdefgh....xyz0123'
+ * The expanded charset is marked as final.
  * 
- * @param charset Charset to expand
- * @param default_charsets Currently defined charsets
- * @param charset_name This charset name
- * @return Expanded and "uniquified"" charset or empty vector if the charset is invalid
+ * @param charsets all the defined charsets
+ * @param charset_name name of the charset to expand
+ * @return true if the charset was expanded and "uniquified"
  */
-std::vector<char> expandCharsetAscii(const std::vector<char> &charset, const CharsetMapAscii &default_charsets, char charset_name);
+bool expandCharsetAscii(CharsetMapAscii & charsets, char charset_name);
 
 /**
- * @brief Expand an unicode codepoint charset replacing all the charset references (?X) by their values, then unify the charset
- * This function is protected against recursive charsets definition. The \a charset_name
- * parameter is used for this protection
+ * @brief Expand an unicode codepoint charset replacing all the charset references (?X) by their values, then uniquify the charset.
+ * Only the last pushed charsets matching \a charset_name is expanded.
+ * When a charset references itself, the previous definition in \a charsets is used if any.
+ * For example pushing 'l' = '?l0123' results in 'l' = 'abcdefgh....xyz0123'
+ * The expanded charset is marked as final.
  * 
- * @param charset Charset to expand
- * @param default_charsets Currently defined charsets
- * @param charset_name This charset name
- * @return Expanded and "uniquified"" charset or empty vector if the charset is invalid
+ * @param charsets all the defined charsets
+ * @param charset_name name of the charset to expand
+ * @return true if the charset was expanded and "uniquified"
  */
-std::vector<uint32_t> expandCharsetUnicode(const std::vector<uint32_t> &charset, const CharsetMapUnicode &default_charsets, uint32_t charset_name);
+bool expandCharsetUnicode(CharsetMapUnicode & charsets, char charset_name);
 
 /**
- * @brief Init a charset map with the 8-bits built-in charsets
+ * @brief Clear then init a charset map with the 8-bits built-in charsets
  * 
  * @param charsets charset map
  */
 void initDefaultCharsetsAscii(CharsetMapAscii &charsets);
 
 /**
- * @brief Init a charset map with the unicode built-in charsets
+ * @brief Clear then init a charset map with the unicode built-in charsets
  * 
  * @param charsets charset map
  */

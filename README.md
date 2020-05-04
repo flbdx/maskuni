@@ -4,16 +4,20 @@ A standalone fast word generator in the spirit of [hashcat's mask generator](htt
 
 ## Overview
 
-Maskgen is a standalone word generator based on templates (masks) which describe the charset for each position of the word.
+Maskgen is a standalone word generator based on templates (masks) describing which characters are allowed at each positions of a word.
 
-Maskgen is largely compatible with the syntax of [Hashcat](https://hashcat.net/hashcat/) and [Maskprocessor](https://github.com/hashcat/maskprocessor). In addition, Maskgen supports :
-- Unicode charsets
+Maskgen is largely compatible with the syntax of [Hashcat](https://hashcat.net/hashcat/) and [Maskprocessor](https://github.com/hashcat/maskprocessor). In addition, Maskgen supports:
+- Unicode charsets:
+  - `maskgen --unicode -1 '?léè' '?1?1?1?1?1?1'`
 - List of masks (supported by Hashcat but not by Maskprocessor)
 - A few more built-in charsets and less restrictions on user-defined charsets
+  - named charsets: `maskgen --unicode --charset €:€£¥ maskfile`
+  - extend predefined charsets: `maskgen --unicode --charset l:?léèà --charset u:?uÉÈ maskfile`
 - Control of the word delimiter
 - A syntax for splitting the generation in equal parts (jobs)
+  - `maskgen -j 7/16 masklist`
 
-The unicode support implies that all inputs must be valid UTF-8 and the output is UTF-8 encoded.
+For unicode charsets, all inputs (charsets and masks) must be encoded in UTF-8 and the output is UTF-8 encoded.
 
 ## Building
 
@@ -21,7 +25,7 @@ Maskgen requires:
 - GCC or Clang (GCC likely to produce faster code)
 - CMake
 - POSIX environment
-- Should build at least on Linux, Cygwin and Msys2/mingw64
+- Should build at least on Linux, Cygwin and Msys2/mingw64 (recommended for windows)
 
 Building with cmake:
 ```
@@ -31,17 +35,31 @@ $ cmake -DCMAKE_BUILD_TYPE=Release ..
 $ make
 ```
 
+## Speed
+
+Unit is million of words per second.
+Tested on a Intel core i5 @3.5Ghz writing to `/dev/null`.
+|Mask|Maskgen|Maskprocessor|Maskgen with unicode|
+|--|--|--|--|
+|?l?l?l?l?l?l|147.1|135.5|45.6|
+|?d?d?d?d?d?d?d?d?d|141.2|130.5|35.0|
+
+So it's pretty fast. But 2/3rd of the time is spent copying and writing the words to the output. The consuming program will also lost a significant amount of time reading from its standard input.
+Therefore a standalone word generator is more suited for creating dictionnary or feeding slow consumers.
+
+When unicode support is enabled, Maskgen is significantly slower as it will iterate over 32-bits unicode codepoints instead of 8-bits characters and therefore read or write 4 times as much memory for the same word width. And of course Maskgen must encode its output in UTF-8.
+
 ## Mask based word generation
 
 If you are not familiar with mask-based word generation I would suggest reading the [dedicated page on Hashcat's wiki](https://hashcat.net/wiki/doku.php?id=mask_attack).
 
-Masks are templates which define which character are allowed at each position of a word. For each position, a mask defines either :
+Masks are templates which define which character are allowed at each position of a word. For each position, a mask defines either:
 - a static character
 - a set of allowed characters (charset)
 
 The word generator will generate all possibilities matching the mask.
 
-For example, if a mask defines `<digit>@passwd<digit><digit>`, the word processor will generate 1000 words ranging from `0@passwd00` to `9@passwd99`.
+For example, if a mask means `<digit>@passwd<digit><digit>`, the word processor will generate 1000 words ranging from `0@passwd00` to `9@passwd99`.
 
 ## Charsets
 
@@ -53,7 +71,7 @@ Charsets are named by a single character. They are referred by the syntax `?K` w
 
 *When defining a charset, you may include another charset by writing its name (`?K`). A single `?` must be escaped by writing `??`.*
 
-Maskgen defines the following builtin charsets :
+Maskgen defines the following builtin charsets:
 
 ```
 ?l = abcdefghijklmnopqrstuvwxyz
@@ -72,7 +90,7 @@ The last charset `?b` is not defined when using the unicode mode as the upper va
 
 ## Masks
 
-Masks are single line strings build by concatenating what to use at each position :
+Masks are single line strings build by concatenating what to use at each position:
 - a single char, which will be always used at this position
 - a named charset (`?K`)
 
@@ -80,7 +98,7 @@ A single `?` must be escaped by writing `??`.
 
 For example the previous example `<digit>@passwd<digit><digit>` would be written `?d@passwd?d?d`.
 
-Maskgen iterates from right to left. So the output of this mask is :
+Maskgen iterates from right to left. So the output of this mask is:
 ```
 0@passwd00
 0@passwd01
@@ -109,7 +127,7 @@ Mask lists are files containing one or more masks definitions (one per line). Th
 
 Mask lists can embed custom charset definitions for each mask.
 
-The general syntax for a single line is :
+The general syntax for a single line is:
 `[:1:,][:2:,]...[:9:,]:mask:`
 where the placeholders are as follows:
 - `:1:` the named custom charset '1' (overrides `--custom-charset1` or `--charset`) will be set to this value, optional
@@ -157,7 +175,7 @@ Generate words based on templates (masks) describing each position's charset
   A charset is a named variable describing a list of characters. Unless
   the --unicode option is used, only 8-bit characters are allowed.
   The name of a charset is a single character. It is reffered using '?'
-  followed by its name (example : ?d). A charset definition can refer to
+  followed by its name (example: ?d). A charset definition can refer to
   other named charsets.
 
   Built-in charsets:
@@ -221,7 +239,7 @@ Generate words based on templates (masks) describing each position's charset
 
 ### Defining and using custom charsets
 
-A custom charset can be defined inline as an argument :
+A custom charset can be defined inline as an argument:
 ```
 $ ./maskgen -1 '01' '?1?1?1'
 000
@@ -248,7 +266,7 @@ The options `-1`, `-2` to `-4` (or the long forms `--custom-charset1` to `--cust
 
 Maskgen will first try to open and read a file with the given value. If none is found then the charset is defined from the argument.
 
-The option `-c` (or `--charset`) allows to define a charset with an arbitrary name :
+The option `-c` (or `--charset`) allows to define a charset with an arbitrary name:
 ```
 $ ./maskgen -c 'L:?l?u' '?L'
 a
@@ -257,6 +275,17 @@ b
 Z
 Y
 Z
+```
+
+A charset may reference itself to extend its definition (including predefined charsets). For example:
+```
+$ ./maskgen -c 1:123 -c 1:?1456 ?1
+1
+2
+3
+4
+5
+6
 ```
 
 Masken will fully expand the user defined charsets (replace any `?X` by the corresponding charset) and uniquify the charsets.
@@ -278,7 +307,7 @@ Note that commas `,` need to be escaped with `?,` when used inside a mask file.
 ### List of masks
 
 Mask lists are a simple way to generate words over multiple patterns in a single invocation.
-For example :
+For example:
 ```
 $ cat masks_nums_1_10 
 ?d
@@ -295,7 +324,7 @@ $ ./maskgen --size masks_nums_1_10
 11111111110
 ```
 
-Example with inline charsets definition :
+Example with inline charsets definition:
 
 ```
 $ cat masks
@@ -324,7 +353,7 @@ emoji�
 [...]
 ```
 
-The different bytes of this charset are read byte by byte and each byte is added to an 8-bit charset.
+This charset is read byte by byte and each byte is added to an 8-bit charset.
 
 Maskgen can handle such character with its unicode support, enabled with `-u` or `--unicode`. *When enabled, all inputs (charsets and masks) are treated as UTF-8 encoded and the output is UTF-8 encoded*.
 
@@ -339,13 +368,11 @@ emoji😘
 emoji👍
 ```
 
-When unicode support is enabled, Maskgen is significantly slower as it will iterate over 32-bits unicode codepoints instead of 8-bits characters and therefore read or write 4 times as much memory for the same word width. And of course Maskgen must encode its output in UTF-8.
-
-Note that there are many subtleties when it comes to unicode characters. Some characters are formed by combining several characters. Emoji characters are complex and masks are not the best approach for emoji generation (see [Unicode TR#51](https://unicode.org/reports/tr51/)). In the previous example, the heart ❤︎ (U+2764) is actually not the very common red heart emoji ❤️ which is formed by combining U+2764 with the variant selector U+FE0F. As another example, "👨‍👩‍👦‍👦" should be represented as a single character (if supported by the browser and if it survived the markdown rendering) but is actually a sequence of 7 characters.
+Note that there are many subtleties when it comes to unicode characters. Some characters are formed by combining several characters. Emoji characters are complex and masks are not the best approach for emoji generation (see [Unicode TR#51](https://unicode.org/reports/tr51/)). In the previous example, the heart ❤︎ (U+2764) is actually not the very common red heart emoji ❤️ which is formed by combining U+2764 with the variant selector U+FE0F. As another example, "👨‍👩‍👦‍👦" should appears as a single glyph (if supported by the browser and if it survived the markdown rendering) but is actually a sequence of 7 characters (UTf-8 encoded as 25 bytes...).
 
 ### Partitioning the generation
 
-To split the word space in several part, Maskgen supports two mechanisms :
+To split the word space in several part, Maskgen supports two mechanisms:
 - explicit numbers of the first and last words
 - spliting in N equal parts (jobs)
 

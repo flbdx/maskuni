@@ -51,7 +51,7 @@ static Mask<T> readMask(const std::vector<T> &str, const CharsetMap<T> &defined_
             }
             else {
                 auto it_range = defined_charsets.equal_range(key);
-                if (it_range.first != defined_charsets.end()) {
+                if (it_range.first != it_range.second) {
                     auto it_charset = std::prev(it_range.second);
                     mask.push_charset_right(it_charset->second.cset.data(), it_charset->second.cset.size());
                 }

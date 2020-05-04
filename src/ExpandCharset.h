@@ -27,7 +27,7 @@ bool expandCharset(CharsetMap<T> &charsets, T charset_name)
 {
     // get the charsets matching charset_name
     auto charsets_range = charsets.equal_range(charset_name);
-    if (charsets_range.first == charsets.end()) {
+    if (charsets_range.first == charsets_range.second) {
         // none found!
         return false;
     }

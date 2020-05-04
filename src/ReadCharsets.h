@@ -77,7 +77,7 @@ bool expandCharsetAscii(CharsetMapAscii & charsets, char charset_name);
  * @param charset_name name of the charset to expand
  * @return true if the charset was expanded and "uniquified"
  */
-bool expandCharsetUnicode(CharsetMapUnicode & charsets, char charset_name);
+bool expandCharsetUnicode(CharsetMapUnicode & charsets, uint32_t charset_name);
 
 /**
  * @brief Clear then init a charset map with the 8-bits built-in charsets

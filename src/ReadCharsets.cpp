@@ -62,7 +62,7 @@ bool expandCharsetAscii(CharsetMapAscii & charsets, char charset_name)
     return expandCharset<char>(charsets, charset_name);
 }
 
-bool expandCharsetUnicode(CharsetMapUnicode & charsets, char charset_name)
+bool expandCharsetUnicode(CharsetMapUnicode & charsets, uint32_t charset_name)
 {
     return expandCharset<uint32_t>(charsets, charset_name);
 }

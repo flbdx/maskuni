@@ -36,7 +36,16 @@
 
 using namespace Maskgen;
 
-static void usage() {
+static void short_usage()
+{
+    const char *help_string =
+    "Usage: maskgen [OPTIONS] (mask|maskfile)\n"
+    "Try 'maskgen --help' to get more information.\n";
+    printf("%s", help_string);
+}
+
+static void usage()
+{
     const char *help_string = 
     "Usage: maskgen [OPTIONS] (mask|maskfile)\n"
     "Generate words based on templates (masks) describing each position's charset\n"
@@ -563,7 +572,7 @@ int real_main(int argc, char **argv)
                 options.m_charsets_long_defs.emplace_back(optarg);
                 break;
             default:
-                usage();
+                short_usage();
                 return 1;
         }
     }
@@ -572,7 +581,7 @@ int real_main(int argc, char **argv)
     argv += optind;
     
     if (argc != 1) {
-        fprintf(stderr, "Error: wrong number of arguments\n");
+        short_usage();
         return 1;
     }
     

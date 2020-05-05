@@ -155,8 +155,8 @@ struct Options {
     bool m_zero_delim;
     bool m_no_delim;
     bool m_print_size;
-    std::map<char, std::string> m_charsets_short_defs; // for -1, -2, ... -4 arguments
-    std::vector<std::string> m_charsets_long_defs; // for "-c k:def" arguments (unparsed)
+    std::vector<std::pair<int, std::string>> m_charsets_opts; // for -1, -2, ... -4 arguments (with the number in the first value)
+                                                               // or -c k:def arguments (with 0 in the first value)
     
     Options() :
     m_unicode(false)
@@ -165,8 +165,7 @@ struct Options {
     , m_output_file()
     , m_zero_delim(false), m_no_delim(false)
     , m_print_size(false)
-    , m_charsets_short_defs()
-    , m_charsets_long_defs()
+    , m_charsets_opts()
     {}
 };
 
@@ -333,38 +332,48 @@ int work(const struct Options &options, const char *mask_arg) {
     CharsetMap<T> charsets; // create our built-in charsets
     Helper::initDefaultCharsets(charsets);
     
-    // create the charsets from the "-1, -2... -4" command line arguments
-    for (auto p : options.m_charsets_short_defs) {
-        std::vector<T> charset;
-        if (!Helper::readCharset(p.second.c_str(), charset)) {
-            char s_charset[Helper::maxCharReprLen];
-            Helper::charToString(p.first, s_charset);
-            fprintf(stderr, "Error while reading the charset '%s'\n", s_charset);
-            return 1;
-        }
-        charsets.insert(std::make_pair(p.first, DefaultCharset<T>(charset, false)));
-    }
-    // create the charsets from the "-c" command line arguments
-    for (const auto &s : options.m_charsets_long_defs) {
-        T key;
-        std::vector<T> charset;
-        if (!Helper::parseCharsetArg(s.c_str(), key, charset)) {
-            fprintf(stderr, "Error while reading the charset definition '%s'\n", s.c_str());
-            return 1;
-        }
-        charsets.insert(std::make_pair(key, DefaultCharset<T>(charset, false)));
-    }
-    
     // expand all the unexpanded charsets
     for (const auto &p : charsets) {
         if (!Helper::expandCharset(charsets, p.first)) {
             char s_charset[Helper::maxCharReprLen];
             Helper::charToString(p.first, s_charset);
-            fprintf(stderr, "Error while expanding the charset '%s' (maybe an undefined charset ?)\n", s_charset);
+            fprintf(stderr, "Error while expanding the charset '%s' (that wasn't expected!)\n", s_charset);
             return 1;
         }
     }
     
+    // create the charsets from the command line arguments
+    for (auto p : options.m_charsets_opts) {
+        T key;
+        std::vector<T> charset;
+        if (p.first > 0) {
+            // for -1, -2, ... -4
+            key = '0' + p.first;
+            if (!Helper::readCharset(p.second.c_str(), charset)) {
+                char s_charset[Helper::maxCharReprLen];
+                Helper::charToString(key, s_charset);
+                fprintf(stderr, "Error while reading the charset '%s' (%s)\n", s_charset, p.second.c_str());
+                return 1;
+            }
+            charsets.insert(std::make_pair(key, DefaultCharset<T>(charset, false)));
+        }
+        else {
+            // for --charset K:def
+            if (!Helper::parseCharsetArg(p.second.c_str(), key, charset)) {
+                fprintf(stderr, "Error while reading the charset definition '%s'\n", p.second.c_str());
+                return 1;
+            }
+            charsets.insert(std::make_pair(key, DefaultCharset<T>(charset, false)));
+        }
+        // then expand
+        if (!Helper::expandCharset(charsets, key)) {
+            char s_charset[Helper::maxCharReprLen];
+            Helper::charToString(key, s_charset);
+            fprintf(stderr, "Error while expanding the charset '%s' (%s) (maybe an undefined charset ?)\n", s_charset, p.second.c_str());
+            return 1;
+        }
+    }
+
     // now read our masks
     MaskList<T> ml;
     if (!Helper::readMaskList(mask_arg, charsets, ml)) {
@@ -566,10 +575,10 @@ int real_main(int argc, char **argv)
             case '2':
             case '3':
             case '4':
-                options.m_charsets_short_defs[opt] = std::string(optarg);
+                options.m_charsets_opts.emplace_back(opt - '0', optarg);
                 break;
             case 'c':
-                options.m_charsets_long_defs.emplace_back(optarg);
+                options.m_charsets_opts.emplace_back(0, optarg);
                 break;
             default:
                 short_usage();

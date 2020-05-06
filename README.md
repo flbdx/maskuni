@@ -44,16 +44,16 @@ Tested on a Intel core i5 @3.5Ghz writing to `/dev/null`.
 |?l?l?l?l?l?l|147.1|135.5|45.6|
 |?d?d?d?d?d?d?d?d?d|141.2|130.5|35.0|
 
-So it's pretty fast. But 2/3rd of the time is spent copying and writing the words to the output. The consuming program will also lost a significant amount of time reading from its standard input.
-Therefore a standalone word generator is more suited for creating dictionnary or feeding slow consumers.
+So it's pretty fast. But 2/3rd of the time is spent copying and writing the words to the output. The consuming program will also lose a significant amount of time reading from its standard input.
+Therefore a standalone word generator is more suited for creating dictionaries or feeding slow consumers.
 
 When unicode support is enabled, Maskgen is significantly slower as it will iterate over 32-bits unicode codepoints instead of 8-bits characters and therefore read or write 4 times as much memory for the same word width. And of course Maskgen must encode its output in UTF-8.
 
 ## Mask based word generation
 
-If you are not familiar with mask-based word generation I would suggest reading the [dedicated page on Hashcat's wiki](https://hashcat.net/wiki/doku.php?id=mask_attack).
+If you are not familiar with mask-based word generation please read the [dedicated page on Hashcat's wiki](https://hashcat.net/wiki/doku.php?id=mask_attack).
 
-Masks are templates which define which character are allowed at each position of a word. For each position, a mask defines either:
+Masks are templates which define which characters are allowed at each position of a word. For each position, a mask defines either:
 - a static character
 - a set of allowed characters (charset)
 
@@ -65,7 +65,7 @@ For example, if a mask means `<digit>@passwd<digit><digit>`, the word processor 
 
 A charset is a named variable describing a set of characters.
 
-In its default mode, Maskgen allows only characters encoding on a fixed with 8-bit encoding (same as Hashcat). As an extension, Maskgen also supports full unicode charsets.
+In its default mode, Maskgen allows only characters encoding on a fixed width 8-bit encoding (same as Hashcat). Maskgen also supports full unicode charsets when called with `--unicode`.
 
 Charsets are named by a single character. They are referred by the syntax `?K` where `K` is the name of the charset.
 
@@ -90,13 +90,13 @@ The last charset `?b` is not defined when using the unicode mode as the upper va
 
 ## Masks
 
-Masks are single line strings build by concatenating what to use at each position:
-- a single char, which will be always used at this position
+Masks are single line strings built by concatenating descriptions of what to use at each position:
+- a single char, which will always be used at this position
 - a named charset (`?K`)
 
 A single `?` must be escaped by writing `??`.
 
-For example the previous example `<digit>@passwd<digit><digit>` would be written `?d@passwd?d?d`.
+For example the previous example `<digit>@passwd<digit><digit>` is written `?d@passwd?d?d`.
 
 Maskgen iterates from right to left. So the output of this mask is:
 ```
@@ -172,7 +172,7 @@ Generate words based on templates (masks) describing each position's charset
  Charsets:
   A charset is a named variable describing a list of characters. Unless
   the --unicode option is used, only 8-bit characters are allowed.
-  The name of a charset is a single character. It is reffered using '?'
+  The name of a charset is a single character. It is refered using '?'
   followed by its name (example: ?d). A charset definition can refer to
   other named charsets.
 
@@ -200,13 +200,13 @@ Generate words based on templates (masks) describing each position's charset
    -4, --custom-charset4=CS
 
    -c, --charset=K:CS          Define a charset named 'K' with the content
-                               'CS'. 'K' may be an UTF-8 char onlye if
+                               'CS'. 'K' may be an UTF-8 char only if
                                --unicode is used. Otherwise it's a single
                                8-bit char.
 
  Masks:
   Masks are templates defining which characters are allowed for each
-  positions. Masks are single line strings build by concatenating
+  positions. Masks are single line strings built by concatenating
   for each positions either: 
   - a static character
   - a charset reference indicated by a '?' followed by the charset
@@ -230,7 +230,7 @@ Generate words based on templates (masks) describing each position's charset
        this value, optional
    :mask: the mask which may refer to the previously defined charsets
 
-  The characters ',' and '?' can be escaped by writing '?,' or '??'.
+  The characters ',' and '?' can be escaped by writing '\,' or '??'.
 ```
 
 ## Examples
@@ -286,7 +286,7 @@ $ ./maskgen -c 1:123 -c 1:?1456 ?1
 6
 ```
 
-Masken will fully expand the user defined charsets (replace any `?X` by the corresponding charset) and uniquify the charsets.
+Masken will fully expand the user defined charsets (replace any `?X` by the corresponding charset) and uniquify them.
 
 ### Single masks
 
@@ -300,7 +300,7 @@ $ ./maskgen --size mask
 6760000
 ```
 
-Note that commas `,` need to be escaped with `?,` when used inside a mask file.
+Note that commas `,` need to be escaped with `\,` when used inside a mask file.
 
 ### List of masks
 

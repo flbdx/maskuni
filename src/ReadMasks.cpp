@@ -83,26 +83,25 @@ static Mask<T> readMask(const std::vector<T> &str, const CharsetMap<T> &defined_
  * 
  * note that T('?') and T(',') are valid for unicode as the codepoint of ASCII character is their value
  */
-template<typename T, T escapeChar = T('?'), T separatorChar = T(',')>
+template<typename T, T charsetEscapeChar = T('?'), T lineEscapeChar = ('\\'), T separatorChar = T(','), T commentChar = T('#')>
 static bool readMaskLine(const T *line, size_t line_len, const CharsetMap<T> &charsets, MaskList<T> &ml) {
     CharsetMap<T> effective_charsets = charsets;
                 
     std::vector<std::vector<T>> tokens;
     tokens.resize(1);
     
+    // remove commented and empty lines
+    if (line_len == 0 || line[0] == commentChar) {
+        return true;
+    }
+    
     // split the line on ,
     for (size_t i = 0; i < line_len; ) {
         T c = line[i];
-        if (c == escapeChar && i + 1 < line_len ) {
-            if (line[i+1] == separatorChar) { // an escaped ,
-                tokens.back().push_back(separatorChar);
-                i += 2;
-            }
-            else {
-                tokens.back().push_back(c);
-                tokens.back().push_back(line[i+1]);
-                i += 2;
-            }
+        // escaped characters
+        if (c == lineEscapeChar && i + 1 < line_len ) {
+            tokens.back().push_back(line[i+1]);
+            i += 2;
         }
         else if (c == separatorChar) { // an unescaped ,
             // finish this token and skip the ,
@@ -138,13 +137,13 @@ static bool readMaskLine(const T *line, size_t line_len, const CharsetMap<T> &ch
     // expandCharset checks for recursive charset definitions so we can safely expand all the user defined charsets
     for (size_t n = 0; n + 1 < tokens.size(); n++) {
         T charset_key = T('1' + n);
-        if (!expandCharset<T>(effective_charsets, charset_key)) {
+        if (!expandCharset<T, charsetEscapeChar>(effective_charsets, charset_key)) {
             fprintf(stderr, "Error while reading the inline custom charset '%c'\n", (int) charset_key);
             return false;
         }
     }
     
-    Mask<T> mask = readMask<T>(tokens.back(), effective_charsets);
+    Mask<T> mask = readMask<T, charsetEscapeChar>(tokens.back(), effective_charsets);
     if (mask.getWidth() == 0) {
         return false;
     }

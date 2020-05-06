@@ -123,7 +123,7 @@ Maskgen iterates from right to left. So the output of this mask is:
 
 ## Mask lists
 
-Mask lists are files containing one or more masks definitions (one per line). The syntax for mask lists is *almost* the same as Hashcat's own syntax. The masks are iterated sequentially.
+Mask lists are files containing one or more masks definitions (one per line). The syntax for mask lists is the same as Hashcat's own syntax. The masks are iterated sequentially.
 
 Mask lists can embed custom charset definitions for each mask.
 
@@ -136,12 +136,10 @@ where the placeholders are as follows:
 - `:9:` the named custom charset '9' (overrides `--charset`) will be set to this value, optional
 - `:mask:` the mask which may refer to the previously defined charsets
 
-As the comma `,` is used to delimit the custom charsets and the mask, it's necessary to escape a `,` in a charset or a mask definition by writing `?,`.
-
-There are a few differences with Hashcat's syntax:
-- `,` are escaped with `?,` instead of `\,` (as a consequence you can't use a charset named `,` in a mask file if you ever feel the urge to name a charset `,`)
-- comments are not supported
-- Maskgen allows up to 9 custom charsets at the beginning of a line
+In addition:
+- a line may be commented out by starting the line with `#`
+- the backslash `\` character can be used to escape another char (`\,` for a comma or `\#` for a `#`)
+- as an extension, Maskgen allows up to 9 custom charsets at the beginning of a line
 
 ## Usage
 

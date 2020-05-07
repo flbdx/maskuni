@@ -183,12 +183,13 @@ bool readMaskListAscii(const char *spec, const CharsetMapAscii &charsets, MaskLi
                 if (!readMaskLine<char>(line, r, charsets, ml)) {
                     fprintf(stderr, "Error while reading '%s' at line %u\n", spec, line_number);
                     free(line);
+                    fclose(f);
                     return false;
                 }
             }
             
             free(line);
-            close(fd);
+            fclose(f);
             return true;
         }
         else {
@@ -243,6 +244,7 @@ bool readMaskListUtf8(const char *spec, const CharsetMapUnicode &charsets, MaskL
                     fprintf(stderr, "Error: the mask file '%s' contains invalid UTF-8 chars at line %u\n", spec, line_number);
                     free(line);
                     free(conv_buf);
+                    fclose(f);
                     return false;
                 }
                 
@@ -250,13 +252,14 @@ bool readMaskListUtf8(const char *spec, const CharsetMapUnicode &charsets, MaskL
                     fprintf(stderr, "Error while reading '%s' at line %u\n", spec, line_number);
                     free(line);
                     free(conv_buf);
+                    fclose(f);
                     return false;
                 }
             }
             
             free(line);
             free(conv_buf);
-            close(fd);
+            fclose(f);
             return true;
         }
         else {

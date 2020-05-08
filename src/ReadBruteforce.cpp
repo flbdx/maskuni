@@ -24,7 +24,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include <queue>
+#include <list>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -41,8 +41,8 @@ namespace Maskgen {
 template<typename T>
 struct ConstrainedCharset {
     DefaultCharset<T> m_charset; // a charset
-    unsigned int m_min; // minimum number of occurence
-    unsigned int m_max; // maximum number of occurence
+    unsigned int m_min; // minimum number of occurrence
+    unsigned int m_max; // maximum number of occurrence
 
     ConstrainedCharset() :
         m_charset(), m_min(0), m_max(0) {}
@@ -50,52 +50,57 @@ struct ConstrainedCharset {
         m_charset(charset), m_min(min), m_max(max) {}
 };
 
+template<typename T>
+static void enumerateMasks_rec_inner(const std::vector<std::pair<const ConstrainedCharset<T> *, unsigned int>> &constraints,
+                               std::vector<unsigned int> &counts, std::vector<const ConstrainedCharset<T> *> &mask,
+                               unsigned int target_len, MaskList<T> &ml);
+
 /*
  * 2nd stage of the mask generation, enumerate over the masks from a valid constraints set
  */
 template<typename T>
-static void enumerateMasks(
+static void enumerateMasks_rec(
         const std::vector<std::pair<const ConstrainedCharset<T> *, unsigned int>> &constraints,
         unsigned int target_len, MaskList<T> &ml)
 {
-    // all of this could be written more simply using generators and recursions
-    // here we use a queue to maintain a state
-    // the items in the queue are:
-    //  - vector storing how many times a charset can be used
-    //  - the progression of the mask from left to right
-    typedef std::pair<std::vector<unsigned int>, std::list<const ConstrainedCharset<T> *>> queue_item;
-    std::queue<queue_item> queue;
-
-    {
-        std::vector<unsigned int> init_values(constraints.size());
-        for (size_t i = 0; i < constraints.size(); i++) {
-            init_values[i] = constraints[i].second;
-        }
-        queue.push(queue_item(init_values, typename queue_item::second_type()));
+    // how many times a charset must be used
+    std::vector<unsigned int> counts(constraints.size());
+    // the progression of the mask from left to right
+    std::vector<const ConstrainedCharset<T> *> mask;
+    mask.reserve(target_len);
+    for (size_t i = 0; i < constraints.size(); i++) {
+        counts[i] = constraints[i].second;
     }
+    
+    enumerateMasks_rec_inner(constraints, counts, mask, target_len, ml);
+}
 
-    while (!queue.empty()) {
-        queue_item state = queue.front();
-        queue.pop();
-
-        for (size_t i = 0; i < state.first.size(); i++) {
-            if (state.first[i] > 0) {
-                queue_item nstate = state;
-                nstate.first[i]--;
-                nstate.second.push_back(constraints[i].first);
-                queue.push(nstate);
-            }
+template<typename T>
+static void enumerateMasks_rec_inner(const std::vector<std::pair<const ConstrainedCharset<T> *, unsigned int>> &constraints,
+                               std::vector<unsigned int> &counts, std::vector<const ConstrainedCharset<T> *> &mask,
+                               unsigned int target_len, MaskList<T> &ml)
+{
+    if (mask.size() == target_len) {
+        // this mask is done cooking
+        Mask<T> newmask;
+        for (auto cset : mask) {
+            newmask.push_charset_right(cset->m_charset.cset.data(), cset->m_charset.cset.size());
         }
-        if (state.second.size() == target_len) {
-            // this mask is done cooking
-            Mask<T> mask;
-            for (auto cset : state.second) {
-                mask.push_charset_right(cset->m_charset.cset.data(), cset->m_charset.cset.size());
+        ml.pushMask(newmask);
+    }
+    else {
+        for (size_t i = 0; i < counts.size(); i++) {
+            if (counts[i] > 0) {
+                counts[i]--;
+                mask.push_back(constraints[i].first);
+                enumerateMasks_rec_inner(constraints, counts, mask, target_len, ml);
+                mask.pop_back();
+                counts[i]++;
             }
-            ml.pushMask(mask);
         }
     }
 }
+
 
 /*
  * The first stage of the mask generation is to deduce some valid reduced constraints.
@@ -112,19 +117,20 @@ static void enumerateMasks(
  */
 template<typename T>
 static void maskListFromConstraints(
-        const std::vector<ConstrainedCharset<T>> &constraints,
+        const std::list<ConstrainedCharset<T>> &constraints,
         unsigned int target_len, MaskList<T> &ml)
 {
-    // for each charset, how many
+    // for each charset, number of occurrences
     // initialize this with the minimum number for each charsets
-    std::vector<std::pair<const ConstrainedCharset<T> *, unsigned int>> counts(constraints.size());
+    std::vector<std::pair<const ConstrainedCharset<T> *, unsigned int>> counts;
+    counts.reserve(constraints.size());
     unsigned int current_len = 0; // our current word length
-    for (size_t i = 0; i < constraints.size(); i++) {
-        counts[i].first = &constraints[i];
-        counts[i].second = constraints[i].m_min;
-        current_len += constraints[i].m_min;
+    for (const auto &c : constraints) {
+        counts.emplace_back(&c, c.m_min);
+        current_len += c.m_min;
     }
 
+    // now we iterates through the possible combinations keeping only those of required length
     while (true) {
         if (current_len < target_len) {
             // skip a few invalid combinations
@@ -136,7 +142,7 @@ static void maskListFromConstraints(
 
         if (current_len == target_len) {
             // this one is valid!
-            enumerateMasks(counts, target_len, ml);
+            enumerateMasks_rec(counts, target_len, ml);
         }
 
         bool carry = true;
@@ -216,8 +222,8 @@ bool readBruteforce(const char *spec, const CharsetMap<T> &charsets, MaskList<T>
     bool got_mask_len = false;
     unsigned int mask_len = 0;
 
-    // the first objective is to build this vector describing the constraints read from the file
-    std::vector<ConstrainedCharset<T>> constrained_charsets;
+    // the first objective is to build this list describing the constraints read from the file
+    std::list<ConstrainedCharset<T>> constrained_charsets;
 
     while ((r = getline(&line, &line_size, f))!= -1) {
         line_number++;
@@ -279,6 +285,9 @@ bool readBruteforce(const char *spec, const CharsetMap<T> &charsets, MaskList<T>
                 return false;
             }
 
+            if (max_len > mask_len) {
+                max_len = mask_len;
+            }
             constrained_charsets.emplace_back(new_charset, min_len, max_len);
         }
     }

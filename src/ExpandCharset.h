@@ -23,18 +23,8 @@
 namespace Maskgen {
 
 template<typename T, T escapeChar = T('?')>
-bool expandCharset(CharsetMap<T> &charsets, T charset_name)
+bool expandCharset(const CharsetMap<T> &charsets, DefaultCharset<T> &charset, T charset_name)
 {
-    // get the charsets matching charset_name
-    auto charsets_range = charsets.equal_range(charset_name);
-    if (charsets_range.first == charsets_range.second) {
-        // none found!
-        return false;
-    }
-    
-    // last charset matching charset_name
-    typename CharsetMap<T>::mapped_type &charset = std::prev(charsets_range.second)->second;
-    
     if (charset.final) {
         return true;
     }
@@ -121,6 +111,22 @@ bool expandCharset(CharsetMap<T> &charsets, T charset_name)
     charset.cset = std::vector<T>(lcharset.begin(), lcharset.end());
     charset.final = true;
     return true;
+}
+
+template<typename T, T escapeChar = T('?')>
+bool expandCharset(CharsetMap<T> &charsets, T charset_name)
+{
+    // get the charsets matching charset_name
+    auto charsets_range = charsets.equal_range(charset_name);
+    if (charsets_range.first == charsets_range.second) {
+        // none found!
+        return false;
+    }
+
+    // last charset matching charset_name
+    typename CharsetMap<T>::mapped_type &charset = std::prev(charsets_range.second)->second;
+
+    return expandCharset(charsets, charset, charset_name);
 }
 
 }

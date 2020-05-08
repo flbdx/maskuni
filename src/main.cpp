@@ -32,6 +32,7 @@
 #include <locale.h>
 
 #include "ReadMasks.h"
+#include "ReadBruteforce.h"
 #include "utf_conv.h"
 
 using namespace Maskgen;
@@ -144,6 +145,7 @@ static void usage()
 
 struct Options {
     bool m_unicode;
+    bool m_bruteforce;
     uint64_t m_job_number;
     uint64_t m_job_total;
     bool m_job_set;
@@ -160,6 +162,7 @@ struct Options {
     
     Options() :
     m_unicode(false)
+    , m_bruteforce(false)
     , m_job_number(), m_job_total(), m_job_set(false)
     , m_start_word(), m_start_word_set(false), m_end_word(), m_end_word_set(false)
     , m_output_file()
@@ -206,6 +209,10 @@ struct Helper8bit {
     static inline bool readMaskList(const char *spec, const CharsetMap<char> &default_charsets, MaskList<char> &ml)
     {
         return readMaskListAscii(spec, default_charsets, ml);
+    }
+    static inline bool readBruteforceConstraints(const char *spec, const CharsetMap<char> &default_charsets, MaskList<char> &ml)
+    {
+        return readBruteforceAscii(spec, default_charsets, ml);
     }
     static constexpr int maxCharReprLen = 2;
     static void charToString(char c, char *str)
@@ -279,6 +286,10 @@ struct HelperUnicode {
     static inline bool readMaskList(const char *spec, const CharsetMap<uint32_t> &default_charsets, MaskList<uint32_t> &ml)
     {
         return readMaskListUtf8(spec, default_charsets, ml);
+    }
+    static inline bool readBruteforceConstraints(const char *spec, const CharsetMap<uint32_t> &default_charsets, MaskList<uint32_t> &ml)
+    {
+        return readBruteforceUtf8(spec, default_charsets, ml);
     }
     static constexpr int maxCharReprLen = 5;
     static void charToString(uint32_t c, char *str)
@@ -376,9 +387,17 @@ int work(const struct Options &options, const char *mask_arg) {
 
     // now read our masks
     MaskList<T> ml;
-    if (!Helper::readMaskList(mask_arg, charsets, ml)) {
-        fprintf(stderr, "Error while reading the mask definition '%s'\n", mask_arg);
-        return 1;
+    if (!options.m_bruteforce) {
+        if (!Helper::readMaskList(mask_arg, charsets, ml)) {
+            fprintf(stderr, "Error while reading the mask definition '%s'\n", mask_arg);
+            return 1;
+        }
+    }
+    else {
+        if (!Helper::readBruteforceConstraints(mask_arg, charsets, ml)) {
+            fprintf(stderr, "Error while reading the bruteforce constraints from '%s'\n", mask_arg);
+            return 1;
+        }
     }
     
     uint64_t ml_len = ml.getLen();
@@ -498,6 +517,7 @@ int real_main(int argc, char **argv)
     
     struct option longopts[] = {
         {"unicode", no_argument, NULL, 'u'},
+        {"bruteforce", no_argument, NULL, 'B'},
         {"job", required_argument, NULL, 'j'},
         {"begin", required_argument, NULL, 'b'},
         {"end", required_argument, NULL, 'e'},
@@ -514,13 +534,16 @@ int real_main(int argc, char **argv)
         {"charset", required_argument, NULL, 'c'},
         {NULL, 0, NULL, 0}
     };
-    const char *shortopt = "uj:b:e:o:znsh1:2:3:4:c:";
+    const char *shortopt = "uBj:b:e:o:znsh1:2:3:4:c:";
     
     int opt;
     while ((opt = getopt_long(argc, argv, shortopt, longopts, 0)) >= 0) {
         switch (opt) {
             case 'u':
                 options.m_unicode = true;
+                break;
+            case 'B':
+                options.m_bruteforce = true;
                 break;
             case 'j':
             {

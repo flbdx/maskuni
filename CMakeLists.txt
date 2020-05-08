@@ -11,7 +11,7 @@ set(MASKGEN_VERSION_PATCH "0")
 set(MASKGEN_VERSION_STRING "${MASKGEN_VERSION_MAJOR}.${MASKGEN_VERSION_MINOR}.${MASKGEN_VERSION_PATCH}")
 
 set (MASKGEN_SOURCES
-        src/ReadCharsets.cpp src/ReadMasks.cpp src/main.cpp)
+        src/ReadCharsets.cpp src/ReadMasks.cpp src/ReadBruteforce.cpp src/main.cpp)
 
 # sanitize default release and debug flags for clang and gcc
 # don't want -DNDEBUG on release

@@ -20,6 +20,8 @@
 
 #include "Mask.h"
 
+#include <list>
+
 namespace Maskgen {
 
 /**
@@ -35,7 +37,7 @@ namespace Maskgen {
 template<typename T>
 class MaskList
 {
-    std::vector<Mask<T>> m_masks;       /*!< List of masks */
+    std::list<Mask<T>> m_masks;         /*!< List of masks */
     uint64_t m_len;                     /*!< sum of the length of the masks */
     typename decltype(m_masks)::iterator m_current_mask;    /*<! iterator to the current mask */
     uint64_t m_mask_rem;                /*!< number of words remaining in the current mask */

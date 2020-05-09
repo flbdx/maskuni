@@ -61,7 +61,15 @@ class Mask
     }
 
 public:
-    Mask() : m_charsets(), m_n_charsets(0), m_len(0) {}
+    /*
+     * @brief Create a new empty mask
+     *
+     * @param reserve Reserve memory for \a reserve charsets for faster insertions
+     */
+    Mask(unsigned int reserve = 0) : m_charsets(), m_n_charsets(0), m_len(0)
+    {
+        m_charsets.reserve(reserve);
+    }
 
     /**
      * @brief Add a charset to the right of the already defined charsets

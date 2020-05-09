@@ -82,7 +82,7 @@ static void enumerateMasks_rec_inner(const std::vector<std::pair<const Constrain
 {
     if (mask.size() == target_len) {
         // this mask is done cooking
-        Mask<T> newmask;
+        Mask<T> newmask(target_len);
         for (auto cset : mask) {
             newmask.push_charset_right(cset->m_charset.cset.data(), cset->m_charset.cset.size());
         }

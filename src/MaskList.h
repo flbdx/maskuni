@@ -86,6 +86,29 @@ public:
     }
 
     /**
+     * @brief Construct a new mask at the end of the list
+     * The mask is built from \a charsets from left to right
+     *
+     * @param charsets Charsets of the mask from left to right
+     */
+    void emplaceMask(const std::vector<const DefaultCharset<T> *> &charsets)
+    {
+        // the main purpose of this method is to reduce the number of allocations and copies
+        m_masks.emplace_back(charsets.size()); // new empty mask with enough memory reserved
+        for (const auto &c : charsets) {
+            m_masks.back().push_charset_right(c->cset.data(), c->cset.size());
+        }
+        if (m_len == 0) {
+            m_current_mask = m_masks.begin();
+        }
+        if (uadd64_overflow(m_len, m_masks.back().getLen(), &m_len)) {
+            fprintf(stderr, "Error: the length of the masklist would overflow a 64 bits integer\n");
+            abort();
+        }
+        m_max_width = std::max(m_max_width, m_masks.back().getWidth());
+    }
+
+    /**
      * @brief Get the length (number of words) of the MaskList
      * 
      * @return Length of the mask list

@@ -66,7 +66,7 @@ static void enumerateMasks_rec(
     // how many times a charset must be used
     std::vector<unsigned int> counts(constraints.size());
     // the progression of the mask from left to right
-    std::vector<const ConstrainedCharset<T> *> mask;
+    std::vector<const DefaultCharset<T> *> mask;
     mask.reserve(target_len);
     for (size_t i = 0; i < constraints.size(); i++) {
         counts[i] = constraints[i].second;
@@ -77,22 +77,18 @@ static void enumerateMasks_rec(
 
 template<typename T>
 static void enumerateMasks_rec_inner(const std::vector<std::pair<const ConstrainedCharset<T> *, unsigned int>> &constraints,
-                               std::vector<unsigned int> &counts, std::vector<const ConstrainedCharset<T> *> &mask,
+                               std::vector<unsigned int> &counts, std::vector<const DefaultCharset<T> *> &mask,
                                unsigned int target_len, MaskList<T> &ml)
 {
     if (mask.size() == target_len) {
         // this mask is done cooking
-        Mask<T> newmask(target_len);
-        for (auto cset : mask) {
-            newmask.push_charset_right(cset->m_charset.cset.data(), cset->m_charset.cset.size());
-        }
-        ml.pushMask(newmask);
+        ml.emplaceMask(mask);
     }
     else {
         for (size_t i = 0; i < counts.size(); i++) {
             if (counts[i] > 0) {
                 counts[i]--;
-                mask.push_back(constraints[i].first);
+                mask.push_back(&constraints[i].first->m_charset);
                 enumerateMasks_rec_inner(constraints, counts, mask, target_len, ml);
                 mask.pop_back();
                 counts[i]++;

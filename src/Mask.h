@@ -61,7 +61,7 @@ class Mask
     }
 
 public:
-    /*
+    /**
      * @brief Create a new empty mask
      *
      * @param reserve Reserve memory for \a reserve charsets for faster insertions

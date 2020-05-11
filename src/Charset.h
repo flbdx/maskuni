@@ -20,20 +20,27 @@
 #include <cstdlib>
 #include <cassert>
 #include <algorithm>
+#include <memory>
 
 namespace Maskgen {
 
 /**
  * @brief Hold a charset and iterate over its content
+ * 
+ * The set is held by a share_ptr and will be shared when copying a Charset.
+ * 
+ * Note: we want this structure to be 32-bytes aligned
+ * missaligned access hurts the speed. Maybe also the spreading of a charset on multiple cache line.
+ * 
  * @param T Either char or 8-bit charsets or uint32_t for unicode codepoints
  */
 template<typename T>
 class Charset
 {
-    T *m_set;           /*!< characters */
-    uint64_t m_len;     /*!< length of \a m_set */
+    std::shared_ptr<T> m_set;    /*!< characters */
     T *m_set_end;       /*!< m_set + m_len */
     T *m_p;             /*!< current position in the charset */
+    // this should be 32 bytes on a 64 bits platform which is ideal
 
 public:
     
@@ -45,7 +52,6 @@ public:
      */
     Charset(const T *set, uint64_t set_len) :
         m_set(nullptr)
-        , m_len(set_len)
         , m_set_end(nullptr)
         , m_p(nullptr)
     {
@@ -53,38 +59,24 @@ public:
             fprintf(stderr, "Error: trying to define an empty charset\n");
             abort();
         }
-        m_set = (T *) malloc(sizeof(T) * m_len);
-        m_set_end = m_set + m_len;
-        m_p = m_set;
-        std::copy_n(set, set_len, m_set);
-    }
-
-    ~Charset()
-    {
-        free(m_set);
+        m_set = std::shared_ptr<T>((T *) ::malloc(sizeof(T) * set_len), ::free);
+        m_set_end = m_set.get() + set_len;
+        m_p = m_set.get();
+        std::copy_n(set, set_len, m_set.get());
     }
 
     Charset(const Charset &o) :
-        m_set(nullptr)
-        , m_len(o.m_len)
-        , m_set_end(nullptr)
-        , m_p(nullptr)
+        m_set(o.m_set)
+        , m_set_end(o.m_set_end)
+        , m_p(o.m_p)
     {
-        m_set = (T *) malloc(sizeof(T) * m_len);
-        m_set_end = m_set + m_len;
-        m_p = m_set + (o.m_p - o.m_set);
-        std::copy_n(o.m_set, m_len, m_set);
     }
 
     Charset<T> &operator = (const Charset &o)
     {
-        if (m_set) {
-            free(m_set);
-        }
-        m_set = (T *) malloc(sizeof(T) * m_len);
-        m_set_end = m_set + m_len;
-        m_p = m_set + (o.m_p - o.m_set);
-        std::copy_n(o.m_set, m_len, m_set);
+        m_set = o.m_set;
+        m_set_end = o.m_set_end;
+        m_p = o.m_p;
         return *this;
     }
 
@@ -93,9 +85,9 @@ public:
      * 
      * @return Length of the charset
      */
-    inline uint64_t getLen() const
+    inline __attribute__((always_inline)) uint64_t getLen() const
     {
-        return m_len;
+        return m_set_end - m_set.get();
     }
 
     /**
@@ -106,10 +98,11 @@ public:
      */
     void setPosition(uint64_t o)
     {
-        if (o >= m_len) {
-            o = (o % m_len);
+        size_t set_len = m_set_end - m_set.get();
+        if (o >= set_len) {
+            o = (o % set_len);
         }
-        m_p = m_set + o;
+        m_p = m_set.get() + o;
     }
 
     /**
@@ -130,9 +123,9 @@ public:
     inline __attribute__((always_inline)) bool getNext(T *out)
     {
         m_p += 1;
-        m_p = (m_p == m_set_end) ? m_set : m_p;
+        m_p = (m_p == m_set_end) ? m_set.get() : m_p;
         *out = *m_p;
-        return m_p == m_set;
+        return m_p == m_set.get();
     }
 };
 

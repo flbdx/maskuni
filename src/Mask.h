@@ -98,7 +98,7 @@ public:
      * 
      * @param charset charset
      */
-    void push_chaset_right(const Charset<T> &charset)
+    void push_charset_right(const Charset<T> &charset)
     {
         m_charsets.emplace_back(charset);
         if (m_n_charsets == 0) {
@@ -158,7 +158,7 @@ public:
      * 
      * @return Length of the mask
      */
-    uint64_t getLen() const
+    inline __attribute__((always_inline)) uint64_t getLen() const
     {
         return m_len;
     }
@@ -168,7 +168,7 @@ public:
      * 
      * @return Width of the mask
      */
-    size_t getWidth() const
+    inline __attribute__((always_inline)) size_t getWidth() const
     {
         return m_charsets.size();
     }

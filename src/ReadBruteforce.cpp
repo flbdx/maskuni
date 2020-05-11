@@ -25,6 +25,7 @@
 #include <cstring>
 
 #include <list>
+#include <type_traits>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -37,17 +38,26 @@
 
 namespace Maskgen {
 
-// describe the constraints on a charset
+/**
+ * @brief Describe a charset and its constraints
+ * 
+ * @param T Either char or 8-bit charsets or uint32_t for unicode codepoints
+ */
 template<typename T>
 struct ConstrainedCharset {
-    DefaultCharset<T> m_charset; // a charset
-    unsigned int m_min; // minimum number of occurrence
-    unsigned int m_max; // maximum number of occurrence
+    Charset<T> m_charset;   /*!< the charset (must be fully expanded) */
+    unsigned int m_min;     /*!< minimum number of occurrences */
+    unsigned int m_max;     /*!< maximum number of occurrences */
 
-    ConstrainedCharset() :
-        m_charset(), m_min(0), m_max(0) {}
+    /**
+     * @brief Construct a new charset with constraints
+     * 
+     * @param charset must be already expanded
+     * @param min minimum number of occurrences
+     * @param max maximum number of occurrences
+     */
     ConstrainedCharset(DefaultCharset<T> &charset, unsigned int min, unsigned int max) :
-        m_charset(charset), m_min(min), m_max(max) {}
+        m_charset(charset.cset.data(), charset.cset.size()), m_min(min), m_max(max) {}
 };
 
 template<typename T>
@@ -55,8 +65,13 @@ static void enumerateMasks_rec_inner(const std::vector<std::pair<const Constrain
                                std::vector<unsigned int> &counts, std::vector<const ConstrainedCharset<T> *> &mask,
                                unsigned int target_len, MaskList<T> &ml);
 
-/*
- * 2nd stage of the mask generation, enumerate over the masks from a valid constraints set
+/**
+ * @brief 2nd stage of the mask generation, enumerate over the masks from a valid constraints set
+ * 
+ * @param T Either char or 8-bit charsets or uint32_t for unicode codepoints
+ * @param constraints charsets and number of occurrences in the word
+ * @param target_len length of the words
+ * @param ml output
  */
 template<typename T>
 static void enumerateMasks_rec(
@@ -66,7 +81,7 @@ static void enumerateMasks_rec(
     // how many times a charset must be used
     std::vector<unsigned int> counts(constraints.size());
     // the progression of the mask from left to right
-    std::vector<const DefaultCharset<T> *> mask;
+    std::vector<const Charset<T> *> mask;
     mask.reserve(target_len);
     for (size_t i = 0; i < constraints.size(); i++) {
         counts[i] = constraints[i].second;
@@ -75,9 +90,13 @@ static void enumerateMasks_rec(
     enumerateMasks_rec_inner(constraints, counts, mask, target_len, ml);
 }
 
+/**
+ * Recursive implementation of enumerateMasks_rec<T>
+ * The recursion depth is the word's length + 1
+ */
 template<typename T>
 static void enumerateMasks_rec_inner(const std::vector<std::pair<const ConstrainedCharset<T> *, unsigned int>> &constraints,
-                               std::vector<unsigned int> &counts, std::vector<const DefaultCharset<T> *> &mask,
+                               std::vector<unsigned int> &counts, std::vector<const Charset<T> *> &mask,
                                unsigned int target_len, MaskList<T> &ml)
 {
     if (mask.size() == target_len) {
@@ -98,7 +117,9 @@ static void enumerateMasks_rec_inner(const std::vector<std::pair<const Constrain
 }
 
 
-/*
+/**
+ * @brief Create the masks from the given charsets and constraints
+ * 
  * The first stage of the mask generation is to deduce some valid reduced constraints.
  * For example, if we have:
  *   ?d: 4 to 6
@@ -109,7 +130,12 @@ static void enumerateMasks_rec_inner(const std::vector<std::pair<const Constrain
  *   ?d*5, ?l*1
  *   ?d*6, ?l*0
  *
- * For each of those valid constraints, call enumerateMasks to get the associated masks
+ * For each of those valid constraints, call \a enumerateMasks_rec to get the associated masks
+ * 
+ * @param T Either char or 8-bit charsets or uint32_t for unicode codepoints
+ * @param constraints input data
+ * @param target_len target word length
+ * @param ml output
  */
 template<typename T>
 static void maskListFromConstraints(
@@ -187,7 +213,9 @@ struct HelperUnicode
     }
 };
 
-/*
+/**
+ * @brief Read a bruteforce description file
+ * 
  * The format of the input file is :
  * <word width>
  * <min1> <max1> <charset1>
@@ -196,6 +224,12 @@ struct HelperUnicode
  * no comment, no escape char, empty lines are allowed, no extra space
  *
  * For the unicode version, the charset is expected to be in UTF-8
+ * 
+ * @param T Either char or 8-bit charsets or uint32_t for unicode codepoints
+ * @param spec filename
+ * @param charsets defined charsets
+ * @param ml output
+ * @return true if no error
  */
 template<typename T>
 bool readBruteforce(const char *spec, const CharsetMap<T> &charsets, MaskList<T> &ml)

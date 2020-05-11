@@ -91,12 +91,12 @@ public:
      *
      * @param charsets Charsets of the mask from left to right
      */
-    void emplaceMask(const std::vector<const DefaultCharset<T> *> &charsets)
+    void emplaceMask(const std::vector<const Charset<T> *> &charsets)
     {
         // the main purpose of this method is to reduce the number of allocations and copies
         m_masks.emplace_back(charsets.size()); // new empty mask with enough memory reserved
         for (const auto &c : charsets) {
-            m_masks.back().push_charset_right(c->cset.data(), c->cset.size());
+            m_masks.back().push_charset_right(*c);
         }
         if (m_len == 0) {
             m_current_mask = m_masks.begin();
@@ -123,7 +123,7 @@ public:
      * 
      * @return width of the current mask
      */
-    size_t getCurrentWidth() const
+    inline __attribute__((always_inline)) size_t getCurrentWidth() const
     {
         return (m_current_mask == nullptr) ? 0 : m_current_mask->getWidth();
     }

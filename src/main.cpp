@@ -40,7 +40,9 @@ using namespace Maskgen;
 static void short_usage()
 {
     const char *help_string =
-    "Usage: maskgen [OPTIONS] (mask|maskfile)\n"
+    "Usage:\n"
+    "  maskgen [--mask] [OPTIONS] (mask|maskfile)\n"
+    "  maskgen --bruteforce [OPTIONS] brutefile\n"
     "Try 'maskgen --help' to get more information.\n";
     printf("%s", help_string);
 }
@@ -49,14 +51,26 @@ static void usage()
 {
     const char *help_string = 
     "Usage: maskgen [OPTIONS] (mask|maskfile)\n"
+    "Usage:\n"
+    "  single mask or maskfile:\n"
+    "    maskgen [--mask] [OPTIONS] (mask|maskfile)\n"
+    "  bruteforce:\n"
+    "    maskgen --bruteforce [OPTIONS] brutefile\n"
     "Generate words based on templates (masks) describing each position's charset\n"
     "\n"
     " Behavior:\n"
+    "  -m, --mask                   [DEFAULT] Iterate through a single mask or\n"
+    "                               a list of masks read from a file\n"
+    "  -B, --bruteforce             Generate the masks from a file describing\n"
+    "                               the word width and a range of occurrences\n"
+    "                               for each charsets (ex: length of 8 with 0\n"
+    "                               to 2 digits, 0 to 8 lowercase letters, 1\n"
+    "                               or 2 uppercase letters\n"
     "  -u, --unicode                Allow UTF-8 characters in the charsets\n"
     "                               Without this option, the charsets can only\n"
     "                               contain 8-bit (ASCII compatible) values\n"
     "                               This option slows down the generation and\n"
-    "                               disables the '?b' built-in charset"
+    "                               disables the '?b' built-in charset\n"
     "\n"
     " Range:\n"
     "  -j, --job=J/N                Divide the generation in N equal parts and\n"
@@ -138,6 +152,18 @@ static void usage()
     "\n"
     "  The characters ',' and '?' can be escaped by writing '\\,' or '?\?'.\n"
     "\n"
+    " Bruteforce:\n"
+    "  When the --bruteforce option is used, the last argument is a file which\n"
+    "  describes the constraints for generating the masks. Its syntax is:\n"
+    "    :width:\n"
+    "    :min: :max: :charset:\n"
+    "    :min: :max: :charset:\n"
+    "    ...\n"
+    "  where the placeholders are as follows:\n"
+    "   :width: the first line must contain the width of the masks\n"
+    "   :min: the minimum number of occurrences of the charset on the same line\n"
+    "   :max: the maximum number of occurrences of the charset on the same line\n"
+    "   :charset: a chaset\n"
     ;
     
     printf("%s", help_string);
@@ -517,6 +543,7 @@ int real_main(int argc, char **argv)
     
     struct option longopts[] = {
         {"unicode", no_argument, NULL, 'u'},
+        {"mask", no_argument, NULL, 'm'},
         {"bruteforce", no_argument, NULL, 'B'},
         {"job", required_argument, NULL, 'j'},
         {"begin", required_argument, NULL, 'b'},
@@ -534,13 +561,16 @@ int real_main(int argc, char **argv)
         {"charset", required_argument, NULL, 'c'},
         {NULL, 0, NULL, 0}
     };
-    const char *shortopt = "uBj:b:e:o:znsh1:2:3:4:c:";
+    const char *shortopt = "uBmj:b:e:o:znsh1:2:3:4:c:";
     
     int opt;
     while ((opt = getopt_long(argc, argv, shortopt, longopts, 0)) >= 0) {
         switch (opt) {
             case 'u':
                 options.m_unicode = true;
+                break;
+            case 'm':
+                options.m_bruteforce = false;
                 break;
             case 'B':
                 options.m_bruteforce = true;

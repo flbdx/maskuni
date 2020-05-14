@@ -50,7 +50,6 @@ static void short_usage()
 static void usage()
 {
     const char *help_string = 
-    "Usage: maskgen [OPTIONS] (mask|maskfile)\n"
     "Usage:\n"
     "  single mask or maskfile:\n"
     "    maskgen [--mask] [OPTIONS] (mask|maskfile)\n"
@@ -93,7 +92,7 @@ static void usage()
     "  A charset is a named variable describing a list of characters. Unless\n"
     "  the --unicode option is used, only 8-bit characters are allowed.\n"
     "  The name of a charset is a single character. It is refered using '?'\n"
-    "  followed by its name (example : ?d). A charset definition can refer to\n"
+    "  followed by its name (example: ?d). A charset definition can refer to\n"
     "  other named charsets.\n"
     "\n"
     "  Built-in charsets:\n"
@@ -163,7 +162,7 @@ static void usage()
     "   :width: the first line must contain the width of the masks\n"
     "   :min: the minimum number of occurrences of the charset on the same line\n"
     "   :max: the maximum number of occurrences of the charset on the same line\n"
-    "   :charset: a chaset\n"
+    "   :charset: a charset\n"
     ;
     
     printf("%s", help_string);
@@ -205,7 +204,7 @@ struct Helper8bit {
         inline void print(const char *buffer, size_t len, int fdout)
         {
             if (write(fdout, buffer, len) != (ssize_t) len) {
-                fprintf(stderr, "Error while writing the output data : %m");
+                fprintf(stderr, "Error while writing the output data: %m");
                 exit(1);
             }
         }
@@ -265,7 +264,7 @@ struct HelperUnicode {
             size_t consumed = 0, written = 0;
             if (UTF::encode_utf8(buffer, len, &conv_buffer, &conv_buffer_size, &consumed, &written) == UTF::RetCode::OK) {
                 if (write(fdout, conv_buffer, written) != (ssize_t) written) {
-                    fprintf(stderr, "Error while writing the output data : %m");
+                    fprintf(stderr, "Error while writing the output data: %m");
                     exit(1);
                 }
             } else {
@@ -484,7 +483,7 @@ int work(const struct Options &options, const char *mask_arg) {
         fdout = open(options.m_output_file.c_str(), O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR|S_IWUSR);
 #endif
         if (fdout < 0) {
-            fprintf(stderr, "Error: can't open the output file : %m\n");
+            fprintf(stderr, "Error: can't open the output file: %m\n");
             return 1;
         }
     }

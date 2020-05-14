@@ -1,25 +1,78 @@
+
 # maskgen
 
 A standalone fast word generator in the spirit of [hashcat's mask generator](https://hashcat.net/wiki/doku.php?id=mask_attack) with unicode support .
+
+**Content:**
+- [Overview](#overview)
+  - [Mask mode](#mask-mode)
+  - [Bruteforce mode](#bruteforce-mode)
+  - [Other features](#other-features)
+  - [Building](#building)
+  - [Speed](#speed)
+- [Syntaxes](#syntaxes)
+  - [Mask based word generation](#mask-based-word-generation)
+  - [Charsets syntax](#charsets-syntax)
+  - [Masks syntax](#masks-syntax)
+  - [Mask lists file syntax](#mask-lists-file-syntax)
+  - [Bruteforce file syntax](#bruteforce-file-syntax)
+- [Usage](#usage)
+- [Examples](#examples)
+  - [Defining and using custom charsets](#defining-and-using-custom-charsets)
+  - [Single masks](#single-masks)
+  - [List of masks](#list-of-masks)
+  - [Unicode charsets](#unicode-charsets)
+  - [Bruteforce](#bruteforce)
+  - [Partitioning the generation](#partitioning-the-generation)
 
 ## Overview
 
 Maskgen is a standalone word generator based on templates (masks) describing which characters are allowed at each positions of a word.
 
-Maskgen is largely compatible with the syntax of [Hashcat](https://hashcat.net/hashcat/) and [Maskprocessor](https://github.com/hashcat/maskprocessor). In addition, Maskgen supports:
+Maskgen has two mode main modes of generation:
+- **mask mode**: the words are generated from a single mask or a list of mask read from a file
+- **bruteforce mode**: the words are generated from a target word length and a set of allowed charsets with constrained number of occurrences.
+
+In addition, Maskgen has two internal generators:
+- a generator for 8-bits charsets (like Hashcat's mask generator)
+- a generator for unicode charsets 🏆🤘 (internally working on 32-bits characters)
+
+### Mask mode
+In its mask mode, Maskgen is largely compatible with the syntax of [Hashcat](https://hashcat.net/hashcat/) and [Maskprocessor](https://github.com/hashcat/maskprocessor).
+
+### Bruteforce mode
+This mode actually generates a list of masks from a set of constraints:
+- the word's width
+- a list of charsets each with a minimum and a maximum number of occurrences.
+
+For example, a word of width 4 with a charset `1` allowed 0 to 4 times and a charset `2` allowed 0 to 2 times would generate the following masks:
+```
+1111
+1112
+1121
+1211
+2111
+1122
+1212
+1221
+2112
+2121
+2211
+```
+
+### Other features
 - Unicode charsets:
   - `maskgen --unicode -1 '?léè' '?1?1?1?1?1?1'`
-- List of masks (supported by Hashcat but not by Maskprocessor)
-- A few more built-in charsets and less restrictions on user-defined charsets
+- A few more built-in charsets than hashcat and less restrictions on user-defined charsets
   - named charsets: `maskgen --unicode --charset €:€£¥ maskfile`
   - extend predefined charsets: `maskgen --unicode --charset l:?léèà --charset u:?uÉÈ maskfile`
-- Control of the word delimiter
+- Control of the word delimiter (`\n`, `\0` or no delimiter)
 - A syntax for splitting the generation in equal parts (jobs)
   - `maskgen -j 7/16 masklist`
 
 For unicode charsets, all inputs (charsets and masks) must be encoded in UTF-8 and the output is UTF-8 encoded.
 
-## Building
+### Building
 
 Maskgen requires:
 - GCC or Clang (GCC likely to produce faster code)
@@ -35,7 +88,7 @@ $ cmake -DCMAKE_BUILD_TYPE=Release ..
 $ make
 ```
 
-## Speed
+### Speed
 
 Unit is million of words per second.
 Tested on a Intel core i5 @3.5Ghz writing to `/dev/null`.
@@ -49,7 +102,9 @@ Therefore a standalone word generator is more suited for creating dictionaries o
 
 When unicode support is enabled, Maskgen is significantly slower as it will iterate over 32-bits unicode codepoints instead of 8-bits characters and therefore read or write 4 times as much memory for the same word width. And of course Maskgen must encode its output in UTF-8.
 
-## Mask based word generation
+## Syntaxes
+
+### Mask based word generation
 
 If you are not familiar with mask-based word generation please read the [dedicated page on Hashcat's wiki](https://hashcat.net/wiki/doku.php?id=mask_attack).
 
@@ -61,7 +116,7 @@ The word generator will generate all possibilities matching the mask.
 
 For example, if a mask means `<digit>@passwd<digit><digit>`, the word processor will generate 1000 words ranging from `0@passwd00` to `9@passwd99`.
 
-## Charsets
+### Charsets syntax
 
 A charset is a named variable describing a set of characters.
 
@@ -88,7 +143,7 @@ Maskgen defines the following builtin charsets:
 
 The last charset `?b` is not defined when using the unicode mode as the upper values can't be encoded in UTF-8.
 
-## Masks
+### Masks syntax
 
 Masks are single line strings built by concatenating descriptions of what to use at each position:
 - a single char, which will always be used at this position
@@ -121,7 +176,7 @@ Maskgen iterates from right to left. So the output of this mask is:
 9@passwd99
 ```
 
-## Mask lists
+### Mask lists file syntax
 
 Mask lists are files containing one or more masks definitions (one per line). The syntax for mask lists is the same as Hashcat's own syntax. The masks are iterated sequentially.
 
@@ -141,18 +196,46 @@ In addition:
 - the backslash `\` character can be used to escape another char (`\,` for a comma or `\#` for a `#`)
 - as an extension, Maskgen allows up to 9 custom charsets at the beginning of a line
 
+### Bruteforce file syntax
+Bruteforce are specified by a file with the following syntax:
+```
+:width:
+:min: :max: :charset:
+:min: :max: :charset:
+...
+```
+where the placeholders are as follows:
+- `:width:` the first line must contain the width of the masks
+- `:min:` the minimum number of occurrences of the charset on the same line
+- `:max:` the maximum number of occurrences of the charset on the same line
+- `:charset:` a charset
+
+It's easy to create really huge attacks with the bruteforce mode. In addition, avoid attacks that would generate a lot of masks as all the masks generated from a bruteforce file are stored in memory and it may become rather huge when storing millions of masks!
+
 ## Usage
 
 ```
-Usage: maskgen [OPTIONS] (mask|maskfile)
+Usage:
+  single mask or maskfile:
+    maskgen [--mask] [OPTIONS] (mask|maskfile)
+  bruteforce:
+    maskgen --bruteforce [OPTIONS] brutefile
 Generate words based on templates (masks) describing each position's charset
 
  Behavior:
+  -m, --mask                   [DEFAULT] Iterate through a single mask or
+                               a list of masks read from a file
+  -B, --bruteforce             Generate the masks from a file describing
+                               the word width and a range of occurrences
+                               for each charsets (ex: length of 8 with 0
+                               to 2 digits, 0 to 8 lowercase letters, 1
+                               or 2 uppercase letters
   -u, --unicode                Allow UTF-8 characters in the charsets
                                Without this option, the charsets can only
                                contain 8-bit (ASCII compatible) values
                                This option slows down the generation and
                                disables the '?b' built-in charset
+
  Range:
   -j, --job=J/N                Divide the generation in N equal parts and
                                generate the 'J'th part (counting from 1)
@@ -168,6 +251,7 @@ Generate words based on templates (masks) describing each position's charset
   -s, --size                   Show the number of words that will be
                                generated and exit
   -h, --help                   Show this help message and exit
+      --version                Show the version number and exit
 
  Charsets:
   A charset is a named variable describing a list of characters. Unless
@@ -231,6 +315,19 @@ Generate words based on templates (masks) describing each position's charset
    :mask: the mask which may refer to the previously defined charsets
 
   The characters ',' and '?' can be escaped by writing '\,' or '??'.
+
+ Bruteforce:
+  When the --bruteforce option is used, the last argument is a file which
+  describes the constraints for generating the masks. Its syntax is:
+    :width:
+    :min: :max: :charset:
+    :min: :max: :charset:
+    ...
+  where the placeholders are as follows:
+   :width: the first line must contain the width of the masks
+   :min: the minimum number of occurrences of the charset on the same line
+   :max: the maximum number of occurrences of the charset on the same line
+   :charset: a charset
 ```
 
 ## Examples
@@ -367,6 +464,26 @@ emoji👍
 ```
 
 Note that there are many subtleties when it comes to unicode characters. Some characters are formed by combining several characters. Emoji characters are complex and masks are not the best approach for emoji generation (see [Unicode TR#51](https://unicode.org/reports/tr51/)). In the previous example, the heart ❤︎ (U+2764) is actually not the very common red heart emoji ❤️ which is formed by combining U+2764 with the variant selector U+FE0F. As another example, "👨‍👩‍👦‍👦" should appears as a single glyph (if supported by the browser and if it survived the markdown rendering) but is actually a sequence of 7 characters (UTf-8 encoded as 25 bytes...).
+
+### Bruteforce
+We may extend a mask with a few special characters. For example, combining with the unicode support:
+```
+$ cat bf_7l_01éè
+7
+0 7 ?l
+0 1 éè
+$ ./maskgen --unicode --bruteforce --size bf_7l_01éè
+12356631040
+$ ./maskgen --unicode --bruteforce -j 80000/100000 bf_7l_01éè |head -5
+zzwrékg
+zzwrékh
+zzwréki
+zzwrékj
+zzwrékk
+```
+This bruteforce includes the 7 lowercases mask and results in around 1.54x more words.
+
+Scaling this up to 8 characters results in a huge keyspace of more than 3.37 x 10<sup>11</sup> words, 4.2x more than the 8 lowercases mask.
 
 ### Partitioning the generation
 

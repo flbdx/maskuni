@@ -239,6 +239,14 @@ struct Helper8bit {
     {
         return readBruteforceAscii(spec, default_charsets, ml);
     }
+    static inline MaskGenerator<char> *readMaskList__(const char *spec, const CharsetMap<char> &default_charsets)
+    {
+        return readMaskListAscii__(spec, default_charsets);
+    }
+    static inline MaskGenerator<char> *readBruteforceConstraints__(const char *spec, const CharsetMap<char> &default_charsets)
+    {
+        return readBruteforceAscii__(spec, default_charsets);
+    }
     static constexpr int maxCharReprLen = 2;
     static void charToString(char c, char *str)
     {
@@ -315,6 +323,14 @@ struct HelperUnicode {
     static inline bool readBruteforceConstraints(const char *spec, const CharsetMap<uint32_t> &default_charsets, MaskList<uint32_t> &ml)
     {
         return readBruteforceUtf8(spec, default_charsets, ml);
+    }
+    static inline MaskGenerator<uint32_t> *readMaskList__(const char *spec, const CharsetMap<uint32_t> &default_charsets)
+    {
+        return readMaskListUtf8__(spec, default_charsets);
+    }
+    static inline MaskGenerator<uint32_t> *readBruteforceConstraints__(const char *spec, const CharsetMap<uint32_t> &default_charsets)
+    {
+        return readBruteforceUtf8__(spec, default_charsets);
     }
     static constexpr int maxCharReprLen = 5;
     static void charToString(uint32_t c, char *str)
@@ -535,6 +551,226 @@ int work(const struct Options &options, const char *mask_arg) {
     return 0;
 }
 
+template<typename T>
+int work__(const struct Options &options, const char *mask_arg) {
+    static_assert(std::is_same<T, char>::value || std::is_same<T, uint32_t>::value, "word requires char or uint32_t as template parameter");
+    typedef typename std::conditional<std::is_same<T, char>::value, Helper8bit, HelperUnicode>::type Helper;
+    CharsetMap<T> charsets; // create our built-in charsets
+    Helper::initDefaultCharsets(charsets);
+    
+    // expand all the unexpanded charsets
+    for (const auto &p : charsets) {
+        if (!Helper::expandCharset(charsets, p.first)) {
+            char s_charset[Helper::maxCharReprLen];
+            Helper::charToString(p.first, s_charset);
+            fprintf(stderr, "Error while expanding the charset '%s' (that wasn't expected!)\n", s_charset);
+            return 1;
+        }
+    }
+    
+    // create the charsets from the command line arguments
+    for (auto p : options.m_charsets_opts) {
+        T key;
+        std::vector<T> charset;
+        if (p.first > 0) {
+            // for -1, -2, ... -4
+            key = '0' + p.first;
+            if (!Helper::readCharset(p.second.c_str(), charset)) {
+                char s_charset[Helper::maxCharReprLen];
+                Helper::charToString(key, s_charset);
+                fprintf(stderr, "Error while reading the charset '%s' (%s)\n", s_charset, p.second.c_str());
+                return 1;
+            }
+            charsets.insert(std::make_pair(key, DefaultCharset<T>(charset, false)));
+        }
+        else {
+            // for --charset K:def
+            if (!Helper::parseCharsetArg(p.second.c_str(), key, charset)) {
+                fprintf(stderr, "Error while reading the charset definition '%s'\n", p.second.c_str());
+                return 1;
+            }
+            charsets.insert(std::make_pair(key, DefaultCharset<T>(charset, false)));
+        }
+        // then expand
+        if (!Helper::expandCharset(charsets, key)) {
+            char s_charset[Helper::maxCharReprLen];
+            Helper::charToString(key, s_charset);
+            fprintf(stderr, "Error while expanding the charset '%s' (%s) (maybe an undefined charset ?)\n", s_charset, p.second.c_str());
+            return 1;
+        }
+    }
+
+    // now get a generator for our masks
+    MaskGenerator<T> *gen = NULL;
+    if (!options.m_bruteforce) {
+        gen = Helper::readMaskList__(mask_arg, charsets);
+        if (!gen) {
+            fprintf(stderr, "Error while reading the mask definition '%s'\n", mask_arg);
+            return 1;
+        }
+    }
+    else {
+        gen = Helper::readBruteforceConstraints__(mask_arg, charsets);
+        if (!gen) {
+            fprintf(stderr, "Error while reading the bruteforce constraints from '%s'\n", mask_arg);
+            return 1;
+        }
+    }
+    
+    // first pass through the generator to check if everything is valid
+    // and get the total length and max width
+    uint64_t ml_len = 0;
+    size_t ml_max_width = 0;
+    {
+        Mask<T> tmpmask;
+        while (gen->good() && (*gen)(tmpmask)) {
+            ml_len += tmpmask.getLen();
+            ml_max_width = std::max<size_t>(ml_max_width, tmpmask.getWidth());
+        }
+    }
+    if (!gen->good()) {
+        if (!options.m_bruteforce) {
+            fprintf(stderr, "Error while reading the mask definition '%s'\n", mask_arg);
+        }
+        else {
+            fprintf(stderr, "Error while reading the bruteforce constraints from '%s'\n", mask_arg);
+        }
+        return 1;
+    }
+    
+    uint64_t start_idx = 0;
+    uint64_t end_idx = ml_len; // after the last word
+    
+    if (options.m_job_set) {
+        // create our staring position and the number of word to generate
+        // from a job spec
+        // the remainder is distributed on the first jobs
+        uint64_t q = ml_len / options.m_job_total;
+        uint64_t r = ml_len - q * options.m_job_total;
+        
+        uint64_t todo = q;
+        start_idx = q * (options.m_job_number - 1);
+        if (r != 0) {
+            start_idx += std::min((uint64_t) options.m_job_number - 1, r);
+            todo += options.m_job_number <= r ? 1 : 0;
+        }
+        end_idx = start_idx + todo;
+    }
+    else {
+        if (options.m_start_word_set) {
+            start_idx = options.m_start_word;
+        }
+        if (options.m_end_word_set) {
+            end_idx = options.m_end_word + 1;
+        }
+        
+        if (end_idx - 1 < start_idx || end_idx > ml_len) {
+            fprintf(stderr, "Error: the last word number is not valid\n");
+            return 1;
+        }
+    }
+    
+    if (options.m_print_size) {
+        printf("%" PRId64 "\n", end_idx - start_idx);
+        return 0;
+    }
+    
+    typename Helper::Printer printer;
+    std::vector<T> buffer(8192);
+    T * buffer_p = buffer.data();
+    const T * buffer_end = buffer.data() + buffer.size();
+    std::vector<T> word(ml_max_width + 1);
+    if (word.size() > buffer.size()) {
+        fprintf(stderr, "Error: do you reallly intend to generate words of length over %zu ?\n", buffer.size());
+        return 1;
+    }
+    
+    // at last create the output file if needed now that we're not supposed to fail anymore
+    int fdout = STDOUT_FILENO;
+    if (!options.m_output_file.empty()) {
+#if defined(__WINDOWS__)
+        fdout = open(options.m_output_file.c_str(), O_WRONLY | O_TRUNC | O_CREAT | O_BINARY, S_IRUSR|S_IWUSR);
+#else
+        fdout = open(options.m_output_file.c_str(), O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR|S_IWUSR);
+#endif
+        if (fdout < 0) {
+            fprintf(stderr, "Error: can't open the output file: %m\n");
+            return 1;
+        }
+    }
+    
+    
+    T delim = options.m_zero_delim ? '\0' : '\n';
+    int delim_width = options.m_no_delim ? 0 : 1;
+    uint64_t todo = end_idx - start_idx;
+    Mask<T> current_mask;
+    
+    // skip to the start position
+    gen->reset();
+    while (start_idx) {
+        (*gen)(current_mask);
+        uint64_t mask_len = current_mask.getLen();
+        if (start_idx >= mask_len) {
+            start_idx -= mask_len;
+        }
+        else {
+            break;
+        }
+    }
+    // if we are right at the end of a mask, load the next one
+    if (start_idx == 0) {
+        (*gen)(current_mask);
+    }
+    while (todo) {
+        current_mask.setPosition(start_idx);
+        uint64_t mask_rem = current_mask.getLen() - start_idx;
+        uint64_t chunk = std::min(todo, mask_rem);
+        size_t w = current_mask.getWidth();
+        // the first word needs to use Mask<T>::getCurrent to fully initialize the word
+        if (chunk >= 1) {
+            current_mask.getCurrent(word.data());
+            word[w] = delim;
+            if (w + delim_width > size_t(buffer_end - buffer_p)) {
+                printer.print(buffer.data(), buffer_p - buffer.data(), fdout);
+                buffer_p = buffer.data();
+            }
+#if defined(__WINDOWS__) || defined(__CYGWIN__)
+            my_memcpy(buffer_p, word.data(), sizeof(T) * (w + delim_width));
+#else
+            memcpy(buffer_p, word.data(), sizeof(T) * (w + delim_width));
+#endif
+            buffer_p += w + delim_width;
+        }
+        // following words use Mask<T>::getNext to update the word
+        for (uint64_t i = 1; i < chunk; i++) {
+            current_mask.getNext(word.data());
+            word[w] = delim;
+            if (w + delim_width > size_t(buffer_end - buffer_p)) {
+                printer.print(buffer.data(), buffer_p - buffer.data(), fdout);
+                buffer_p = buffer.data();
+            }
+#if defined(__WINDOWS__) || defined(__CYGWIN__)
+            my_memcpy(buffer_p, word.data(), sizeof(T) * (w + delim_width));
+#else
+            memcpy(buffer_p, word.data(), sizeof(T) * (w + delim_width));
+#endif
+            buffer_p += w + delim_width;
+        }
+
+        todo -= chunk;
+        if (todo) {
+            (*gen)(current_mask);
+            start_idx = 0;
+        }
+    }
+
+    printer.print(buffer.data(), buffer_p - buffer.data(), fdout);
+    if (fdout != STDOUT_FILENO) {
+        close(fdout);
+    }
+    return 0;
+}
+
 int real_main(int argc, char **argv)
 {
     setlocale(LC_ALL, "");
@@ -649,11 +885,11 @@ int real_main(int argc, char **argv)
     const char *mask_arg = argv[0];
     
     if (!options.m_unicode) {
-        int r = work<char>(options, mask_arg);
+        int r = work__<char>(options, mask_arg);
         return r;
     }
     else {
-        int r = work<uint32_t>(options, mask_arg);
+        int r = work__<uint32_t>(options, mask_arg);
         return r;
     }
 

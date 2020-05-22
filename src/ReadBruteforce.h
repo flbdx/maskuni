@@ -46,3 +46,10 @@ bool readBruteforceAscii(const char *spec, const CharsetMapAscii &charsets, Mask
 bool readBruteforceUtf8(const char *spec, const CharsetMapUnicode &charsets, MaskList<uint32_t> &ml);
 
 }
+
+#include "MaskGenerator.h"
+
+namespace Maskgen {
+    MaskGenerator<char> *readBruteforceAscii__(const char *spec, const CharsetMapAscii &charsets);
+    MaskGenerator<uint32_t> *readBruteforceUtf8__(const char *spec, const CharsetMapUnicode &charsets);
+}

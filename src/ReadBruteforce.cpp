@@ -24,6 +24,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include <memory>
 #include <list>
 #include <type_traits>
 
@@ -346,4 +347,356 @@ bool readBruteforceUtf8(const char *spec, const CharsetMapUnicode &charsets, Mas
 {
     return readBruteforce<uint32_t>(spec, charsets, ml);
 }
+
+// Simon Tatham's style
+//
+// These macros are helpers to build pseudo coroutines (more like reentrant functions)
+// The technique is proposed by Simon Tathams in "Coroutines in C" https://www.chiark.greenend.org.uk/~sgtatham/coroutines.html
+// and is based on the old "Duff's device" loop optimisation
+//
+// The idea is to use a swicth statement as fancy label/goto to jump back at a saved position (juste ater a return statement).
+// The state and variables must use a persistent storage.
+// There are some limitations due to variable cross initialization but it's blazing-fast and kinda cute.
+// Since there is no real stack, no context switching, etc. it's way faster than boost's coroutines, and still 3 to 4 times
+// faster than C++20's coroutines as implemented by G++-10.1 (and they are really fast!)
+#define crBegin switch(state) { case 0:
+#define crReturn do { state=__LINE__; return true; case __LINE__:; } while (0);
+#define crFinish } return false;
+
+/**
+ * @brief 2nd stage of the mask generation
+ * 
+ * A generator which yields the masks satisfying a set of reduced constraints (words's width and exact number of occurrences for each charsets).
+ * Must be called by \a FirstStageGen<T>
+ * 
+ * Note that de \a counts parameter is passed by reference and is used by this generator
+ * At the end of the generation, \a counts is back in is initial state.
+ * 
+ * This generator is recursive
+ * 
+ * @param T Either char or 8-bit charsets or uint32_t for unicode codepoints
+ */
+template<typename T>
+class SecondStageGen {
+    unsigned int state;
+    struct {
+        // charsets with current remaining number of occurrences
+        // this reference is shared with the parent FirstStageGen and the recursive
+        // instances of SecondStateGen
+        std::vector<std::pair<const ConstrainedCharset<T> *, unsigned int>> &counts;
+        // words's width
+        unsigned int target_len;
+        // current mask in cooking shared with the recursive instances of SecondStateGen
+        // the ptr is allocated by the main constructor and copied by the 2nd
+        std::shared_ptr<std::list<const ConstrainedCharset<T> *>> mask;
+    } params;
+    struct { // generator's pseudo stack
+        size_t i;
+        SecondStageGen<T> *ngen;
+    } vars;
+
+public:
+    SecondStageGen(
+            std::vector<std::pair<const ConstrainedCharset<T> *, unsigned int>> &counts,
+            unsigned int target_len) :
+            state(0),
+            params {counts,
+                    target_len,
+                    std::make_shared<typename decltype(params.mask)::element_type>()
+                    },
+            vars() {}
+
+    // copy a generator and reset it's state
+    SecondStageGen(const SecondStageGen &o) : state(0), params(o.params), vars() {}
+
+    bool operator()(std::list<const ConstrainedCharset<T> *> &mask_out) {
+        crBegin
+        if (params.mask->size() == params.target_len) {
+            // done cooking!
+            mask_out = *params.mask;
+            crReturn
+        }
+        else {
+            for (vars.i = 0; vars.i < params.counts.size(); vars.i++) {
+                if (params.counts[vars.i].second > 0) {
+                    params.counts[vars.i].second--;
+                    params.mask->push_back(params.counts[vars.i].first);
+                    vars.ngen = new SecondStageGen(*this);
+                    while ((*vars.ngen)(mask_out)) {
+                        // climb back up
+                        crReturn
+                    }
+                    params.counts[vars.i].second++;
+                    params.mask->pop_back();
+                    delete vars.ngen;
+                }
+            }
+        }
+        crFinish
+    }
+};
+
+/**
+ * @brief Create the masks from the given charsets and constraints
+ * 
+ * This generator yields he masks satisfying the set of constraints
+ * 
+ * The first stage of the mask generation is to deduce some valid reduced constraints.
+ * For example, if we have:
+ *   ?d: 4 to 6
+ *   ?l: 0 to 1
+ *   length: 6
+ *
+ * the valid constraints are:
+ *   ?d*5, ?l*1
+ *   ?d*6, ?l*0
+ *
+ * For each of those valid constraints, use a \a SecondStageGen to get the associated masks
+ * 
+ * @param T Either char or 8-bit charsets or uint32_t for unicode codepoints
+ */
+template<typename T>
+class FirstStageGen {
+    unsigned int state;
+    struct {
+        const std::vector<ConstrainedCharset<T>> &constraints; // constained charsets
+        unsigned int target_len; // word's width
+    } params;
+    struct {
+        std::vector<std::pair<const ConstrainedCharset<T> *, unsigned int>> counts; // number of occurrences for each charsets
+        unsigned int current_len; // current word's width
+        SecondStageGen<T> *gen2;
+    } vars;
+
+public:
+    FirstStageGen(const std::vector<ConstrainedCharset<T>> &constraints, unsigned int target_len):
+        state(0), params {constraints, target_len}, vars() {}
+
+    bool operator()(std::list<const ConstrainedCharset<T> *> &mask_out) {
+        crBegin
+
+        // initialize the number of occurrences with the minimum allowed for each charsets
+        vars.counts.resize(params.constraints.size());
+        vars.current_len = 0;
+        for (size_t i = 0; i < params.constraints.size(); i++) {
+            vars.counts[i].first = &params.constraints[i];
+            vars.counts[i].second = params.constraints[i].m_min;
+            vars.current_len += params.constraints[i].m_min;
+        }
+
+        while (true) {
+            // skip a few invalid combinations
+            if (vars.current_len < params.target_len) {
+                auto it = vars.counts.begin();
+                unsigned int diff = std::min(params.target_len - vars.current_len, it->first->m_max - it->second);
+                it->second += diff;
+                vars.current_len += diff;
+            }
+
+            // this combination is valid
+            if (vars.current_len == params.target_len) {
+                // use the 2nd generator to generate its masks
+                // and yield them
+                vars.gen2 = new SecondStageGen<T>(vars.counts, params.target_len);
+                while ((*vars.gen2)(mask_out)) {
+                    crReturn
+                }
+                delete vars.gen2;
+            }
+
+            // increment the combination
+            bool carry = true;
+            for (auto it = vars.counts.begin(); it != vars.counts.end() && carry; it++) {
+                it->second++;
+                vars.current_len++;
+                if (it->second > it->first->m_max || vars.current_len > params.target_len) {
+                    // also skip some other invalid combinations
+                    vars.current_len -= it->second;
+                    it->second = it->first->m_min;
+                    vars.current_len += it->second;
+                    carry = true;
+                }
+                else {
+                    carry = false;
+                }
+            }
+            if (carry) {
+                break;
+            }
+        }
+
+        crFinish
+    }
+};
+
+#undef crBegin
+#undef crFinish
+#undef crReturn
+
+/**
+ * @brief A mask generator for bruteforce files
+ * 
+ * It's a wrapper over \a FirstStageGen<T>
+ * 
+ * @param T Either char or 8-bit charsets or uint32_t for unicode codepoints
+ */
+template<typename T>
+class BruteforceGenerator : public MaskGenerator<T>
+{
+    const std::vector<ConstrainedCharset<T>> m_constraints; /*!< input data */
+    unsigned int m_target_len; /*!< bruteforce width */
+    FirstStageGen<T> *m_gen; /*!< The actual generator */
+    bool m_done; /*!< flag */
+    
+public:
+    BruteforceGenerator(const std::vector<ConstrainedCharset<T>> &constraints, unsigned int target_len) :
+    m_constraints(constraints), m_target_len(target_len),
+    m_gen(new FirstStageGen<T>(m_constraints, m_target_len)),
+    m_done(false)
+    {}
+    ~BruteforceGenerator() {
+        delete m_gen;
+    }
+    
+    bool operator()(Maskgen::Mask<T> &mask) {
+        if (m_done) {
+            return false;
+        }
+        std::list<const ConstrainedCharset<T> *> mask_l;
+        if ((*m_gen)(mask_l)) {
+            mask = Maskgen::Mask<T>((unsigned int) mask_l.size());
+            for (auto &c: mask_l) {
+                mask.push_charset_right(c->m_charset);
+            }
+            return true;
+        }
+        else {
+            m_done = true;
+            return false;
+        }
+    }
+    
+    void reset() {
+        delete m_gen;
+        m_gen = new FirstStageGen<T>(m_constraints, m_target_len);
+        m_done = false;
+    }
+    
+    bool good() {
+        return true; // we don't do errors here. 
+    }
+};
+
+template<typename T>
+MaskGenerator<T> *readBruteforce__(const char *spec, const CharsetMap<T> &charsets)
+{
+    static_assert(std::is_same<T, char>::value || std::is_same<T, uint32_t>::value, "readBruteforce requires char or uint32_t as template parameter");
+    typedef typename std::conditional<std::is_same<T, char>::value, Helper8bits, HelperUnicode>::type Helper;
+
+#if defined(__WINDOWS__) || defined(__CYGWIN__)
+    int fd = open(spec, O_RDONLY | O_BINARY);
+#else
+    int fd = open(spec, O_RDONLY);
+#endif
+
+    FILE *f = fdopen(fd, "rb");
+    char *line = NULL;
+    size_t line_size = 0;
+    ssize_t r;
+    unsigned int line_number = 0;
+
+    bool got_mask_len = false;
+    unsigned int mask_len = 0;
+
+    // the first objective is to build this list describing the constraints read from the file
+    std::list<ConstrainedCharset<T>> constrained_charsets;
+
+    while ((r = getline(&line, &line_size, f))!= -1) {
+        line_number++;
+        if (r >= 2 && line[r-1] == '\n' && line[r-2] == '\r') {
+            line[r-2] = '\0';
+            r -= 2;
+        }
+        else if (r >= 1 && line[r-1] == '\n') {
+            line[r-1] = '\0';
+            r -= 1;
+        }
+        if (r == 0) {
+            continue;
+        }
+
+        if (!got_mask_len) {
+            if (sscanf(line, "%u", &mask_len) != 1) {
+                fprintf(stderr, "Error while reading the width from '%s' at line '%u'\n", spec, line_number);
+                fclose(f);
+                free(line);
+                return NULL;
+            }
+            got_mask_len = true;
+        }
+        else {
+            int consumed = 0;
+            unsigned int min_len = 0, max_len = 0;
+            if (sscanf(line, "%u %u %n", &min_len, &max_len, &consumed) != 2) {
+                fprintf(stderr, "Error while reading the charset constraints from '%s' at line '%u'\n", spec, line_number);
+                fclose(f);
+                free(line);
+                return NULL;
+            }
+
+            DefaultCharset<T> new_charset;
+            new_charset.final = false;
+
+            if (!Helper::readCharset(line + consumed, r - consumed, new_charset.cset)) {
+                fprintf(stderr, "Error: the charset at line '%u' is invalid\n", line_number);
+                fclose(f);
+                free(line);
+                return NULL;
+            }
+
+            if (new_charset.cset.size() == 0) {
+                fprintf(stderr, "Error: the charset at line '%u' is empty\n", line_number);
+                fclose(f);
+                free(line);
+                return NULL;
+            }
+
+            // now to expand this charset, we need a name...
+            // this charset is anonymous, so let's use a forbidden name for it
+            // two charset names can't be used by the user: \0 and ?
+            if (!expandCharset(charsets, new_charset, T('\0'))) {
+                fprintf(stderr, "Error while expanding the charset from '%s' at line '%u'\n", spec, line_number);
+                fclose(f);
+                free(line);
+                return NULL;
+            }
+
+            if (max_len > mask_len) {
+                max_len = mask_len;
+            }
+            constrained_charsets.emplace_back(new_charset, min_len, max_len);
+        }
+    }
+    
+    fclose(f);
+    free(line);
+
+    if (constrained_charsets.size() == 0 || !got_mask_len) {
+        fprintf(stderr, "Error, expected at least a word width and a charset in '%s'\n", spec);
+        return NULL;
+    }
+
+    return new BruteforceGenerator<T>({constrained_charsets.begin(), constrained_charsets.end()}, mask_len);
+}
+
+MaskGenerator<char> *readBruteforceAscii__(const char *spec, const CharsetMapAscii &charsets)
+{
+    return readBruteforce__<char>(spec, charsets);
+}
+
+MaskGenerator<uint32_t> *readBruteforceUtf8__(const char *spec, const CharsetMapUnicode &charsets)
+{
+    return readBruteforce__<uint32_t>(spec, charsets);
+}
+
 }

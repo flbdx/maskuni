@@ -84,7 +84,7 @@ static Mask<T> readMask(const std::vector<T> &str, const CharsetMap<T> &defined_
  * note that T('?') and T(',') are valid for unicode as the codepoint of ASCII character is their value
  */
 template<typename T, T charsetEscapeChar = T('?'), T lineEscapeChar = ('\\'), T separatorChar = T(','), T commentChar = T('#')>
-static bool readMaskLine(const T *line, size_t line_len, const CharsetMap<T> &charsets, MaskList<T> &ml) {
+static bool readMaskLine_(const T *line, size_t line_len, const CharsetMap<T> &charsets, Mask<T> &mask) {
     CharsetMap<T> effective_charsets = charsets;
                 
     std::vector<std::vector<T>> tokens;
@@ -143,12 +143,21 @@ static bool readMaskLine(const T *line, size_t line_len, const CharsetMap<T> &ch
         }
     }
     
-    Mask<T> mask = readMask<T, charsetEscapeChar>(tokens.back(), effective_charsets);
+    mask = readMask<T, charsetEscapeChar>(tokens.back(), effective_charsets);
     if (mask.getWidth() == 0) {
         return false;
     }
-    ml.pushMask(mask);
     return true;
+}
+
+template<typename T, T charsetEscapeChar = T('?'), T lineEscapeChar = ('\\'), T separatorChar = T(','), T commentChar = T('#')>
+static bool readMaskLine(const T *line, size_t line_len, const CharsetMap<T> &charsets, MaskList<T> &ml) {
+    Mask<T> mask;
+    if (readMaskLine_<T>(line, line_len, charsets, mask)) {
+        ml.pushMask(mask);
+        return true;
+    }
+    return false;
 }
 
 bool readMaskListAscii(const char *spec, const CharsetMapAscii &charsets, MaskList<char> &ml)
@@ -289,6 +298,247 @@ bool readMaskListUtf8(const char *spec, const CharsetMapUnicode &charsets, MaskL
     }
     
     return true;
+}
+
+/**
+ * @brief Mask generator for a single mask or a mask file
+ * 
+ * The generator holds the whole file content to avoid strange behavior if the file is modified while opened
+ * It can be used with a single mask as a command line argument by passing command_line_mask=true
+ * 
+ */
+template<typename T>
+class MaskFileGenerator : public MaskGenerator<T>
+{
+    char *m_content;            /*!< file content */
+    const size_t m_content_len; /*!< file content length */
+    bool m_command_line_mask;   /*!< true if content is a command line argument and not the content of a file */
+    char *m_filename;           /*!< name of the file for error messages */
+    const CharsetMap<T> m_charsets; /*<! predefined charsets */
+    const char *m_p;            /*!< read pointer in m_content */
+    unsigned int m_line_number; /*!< number of line read for error messages */
+    bool m_error;               /*!< error flag */
+    
+    
+    /**
+     * @brief read a line from the buffer \a m_content
+     * 
+     * The data are not copied and must not be modified
+     * 
+     * @param line set to the begining of the line
+     * @param line_len set to the length of the line
+     * @return true if there was something to read
+     */
+    bool readline(const char **line, size_t *line_len) {
+        size_t rem = m_content_len - (m_p - m_content);
+        if (rem == 0) {
+            return false;
+        }
+        
+        char *delim_pos = (char *) memchr(m_p, '\n', rem);
+        if (delim_pos) {
+            *line = m_p;
+            *line_len = delim_pos - m_p + 1;
+            m_p += *line_len;
+        }
+        else {
+            *line = m_p;
+            *line_len = rem;
+            m_p += rem;
+        }
+        return true;
+    }
+    
+public:
+    /**
+     * @brief construct a new generator
+     * 
+     * @param content file content or inline mask. The generator takes ownership of content which will be freed with \a free by the destructor
+     * @param content_len length of \a content
+     * @param command_line_mask set to true if it's a command line argument and not a mask file
+     * @param filename filename for error messages
+     * @param charsets predefined charsets
+     */
+    MaskFileGenerator(char *content, size_t content_len, bool command_line_mask, const char *filename, const CharsetMap<T> &charsets) :
+    m_content(content), m_content_len(content_len), m_command_line_mask(command_line_mask),
+    m_filename(strdup(filename)), m_charsets(charsets), m_p(m_content), m_line_number(0), m_error(false) {}
+    
+    ~MaskFileGenerator() {
+        free(m_content);
+        free(m_filename);
+    }
+    
+    bool operator()(Maskgen::Mask<T> &mask);
+    
+    void reset() {
+        m_p = m_content;
+        m_line_number = 0;
+        m_error = false;
+    }
+    
+    bool good() {
+        return !m_error;
+    }
+    
+};
+
+template<> bool MaskFileGenerator<char>::operator()(Maskgen::Mask<char> &mask) {
+    const char *line;
+    size_t r;
+    while (true) {
+        if (!readline(&line, &r)) {
+            return false;
+        }
+        m_line_number++;
+        
+        if (r >= 2 && line[r - 1] == '\n' && line[r - 2] == '\r') {
+            r -= 2;
+        }
+        else if (r >= 1 && line[r - 1] == '\n') {
+            r -= 1;
+        }
+        if (r == 0) {
+            continue;
+        }
+        
+        Mask<char> mask_;
+        if (m_command_line_mask) {
+            mask_ = readMask<char>({m_content, m_content + m_content_len}, m_charsets);
+            if (mask_.getWidth() == 0) {
+                m_error = true;
+                return false;
+            }
+            else {
+                mask = mask_;
+                return true;
+            }
+        }
+        else {
+            // full parser when reading from a file
+            if (readMaskLine_<char>(line, r, m_charsets, mask_)) {
+                mask = mask_;
+                return true;
+            }
+            m_error = true;
+            fprintf(stderr, "Error while reading '%s' at line %u\n", m_filename, m_line_number);
+            return false;
+        }
+    }
+    
+    return false;
+}
+
+// compared to the char version, this adds a UTF-8 decoding
+template<> bool MaskFileGenerator<uint32_t>::operator()(Maskgen::Mask<uint32_t> &mask) {
+    const char *line;
+    size_t r;
+    uint32_t *conv_buf = NULL;
+    size_t conv_buf_size = 0;
+    size_t conv_consumed = 0, conv_written = 0;
+    while (true) {
+        if (!readline(&line, &r)) {
+            free(conv_buf);
+            return false;
+        }
+        m_line_number++;
+        
+        if (r >= 2 && line[r - 1] == '\n' && line[r - 2] == '\r') {
+            r -= 2;
+        }
+        else if (r >= 1 && line[r - 1] == '\n') {
+            r -= 1;
+        }
+        if (r == 0) {
+            continue;
+        }
+        
+        UTF::decode_utf8(line, r, &conv_buf, &conv_buf_size, &conv_consumed, &conv_written);
+        if (conv_consumed != (size_t) r) {
+            if (m_command_line_mask) {
+                fprintf(stderr, "Error: the mask argument '%s' contains invalid UTF-8 chars\n", m_filename);
+            }
+            else {
+                fprintf(stderr, "Error: the mask file '%s' contains invalid UTF-8 chars at line %u\n", m_filename, m_line_number);
+            }
+            free(conv_buf);
+            m_error = true;
+            return false;
+        }
+        
+        Mask<uint32_t> mask_;
+        if (m_command_line_mask) {
+            mask_ = readMask<uint32_t>({conv_buf, conv_buf + conv_written}, m_charsets);
+            if (mask_.getWidth() == 0) {
+                m_error = true;
+                return false;
+            }
+            else {
+                mask = mask_;
+                return true;
+            }
+        }
+        else {
+            // full parser when reading from a file
+            if (readMaskLine_<uint32_t>(conv_buf, conv_written, m_charsets, mask_)) {
+                mask = mask_;
+                free(conv_buf);
+                return true;
+            }
+            m_error = true;
+            fprintf(stderr, "Error while reading '%s' at line %u\n", m_filename, m_line_number);
+            free(conv_buf);
+            return false;
+        }
+    }
+    
+    return false;
+}
+
+template<typename T>
+MaskGenerator<T> *readMaskList__(const char *spec, const CharsetMap<T> &charsets) {
+#if defined(__WINDOWS__) || defined(__CYGWIN__)
+    int fd = open(spec, O_RDONLY | O_BINARY);
+#else
+    int fd = open(spec, O_RDONLY);
+#endif
+    
+    char *content = NULL;
+    size_t content_len = 0;
+    
+    if (fd >= 0) {
+        struct stat st;
+        if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode)) {
+            content_len = st.st_size;
+            content = (char *) malloc(content_len);
+            ssize_t r = read(fd, content, content_len);
+            if (r < 0 || (size_t) r != content_len) {
+                fprintf(stderr, "Error while reading '%s'\n", spec);
+                free(content);
+                close(fd);
+                return NULL;
+            }
+            
+            close(fd);
+            return new MaskFileGenerator<T>(content, content_len, false, spec, charsets);
+        }
+        else {
+            close(fd);
+        }
+    }
+    
+    content_len = strlen(spec);
+    content = (char *) malloc(content_len);
+    memcpy(content, spec, content_len);
+    
+    return new MaskFileGenerator<T>(content, content_len, true, spec, charsets);
+}
+
+MaskGenerator<char> *readMaskListAscii__(const char *spec, const CharsetMapAscii &charsets) {
+    return readMaskList__<char>(spec, charsets);
+}
+
+MaskGenerator<uint32_t> *readMaskListUtf8__(const char *spec, const CharsetMapUnicode &charsets) {
+    return readMaskList__<uint32_t>(spec, charsets);
 }
 
 }

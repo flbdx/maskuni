@@ -52,3 +52,10 @@ bool readMaskListAscii(const char *spec, const CharsetMapAscii &charsets, MaskLi
 bool readMaskListUtf8(const char *spec, const CharsetMapUnicode &charsets, MaskList<uint32_t> &ml);
 
 }
+
+#include "MaskGenerator.h"
+
+namespace Maskgen {
+    MaskGenerator<char> *readMaskListAscii__(const char *spec, const CharsetMapAscii &charsets);
+    MaskGenerator<uint32_t> *readMaskListUtf8__(const char *spec, const CharsetMapUnicode &charsets);
+}

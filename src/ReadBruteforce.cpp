@@ -243,6 +243,10 @@ bool readBruteforce(const char *spec, const CharsetMap<T> &charsets, MaskList<T>
 #else
     int fd = open(spec, O_RDONLY);
 #endif
+    if (fd < 0) {
+        fprintf(stderr, "Error: can't open file '%s': %m\n", spec);
+        return false;
+    }
 
     FILE *f = fdopen(fd, "rb");
     char *line = NULL;
@@ -598,6 +602,10 @@ MaskGenerator<T> *readBruteforce__(const char *spec, const CharsetMap<T> &charse
 #else
     int fd = open(spec, O_RDONLY);
 #endif
+    if (fd < 0) {
+        fprintf(stderr, "Error: can't open file '%s': %m\n", spec);
+        return NULL;
+    }
 
     FILE *f = fdopen(fd, "rb");
     char *line = NULL;

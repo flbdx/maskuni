@@ -70,6 +70,16 @@ public:
     {
         m_charsets.reserve(reserve);
     }
+    
+    /**
+     * @brief erase all the content of the mask
+     */
+    void clear()
+    {
+        m_charsets.clear();
+        m_len = 0;
+        m_n_charsets = 0;
+    }
 
     /**
      * @brief Add a charset to the right of the already defined charsets

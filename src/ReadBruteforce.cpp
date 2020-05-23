@@ -564,7 +564,7 @@ public:
         }
         std::list<const ConstrainedCharset<T> *> mask_l;
         if ((*m_gen)(mask_l)) {
-            mask = Maskgen::Mask<T>((unsigned int) mask_l.size());
+            mask.clear();
             for (auto &c: mask_l) {
                 mask.push_charset_right(c->m_charset);
             }

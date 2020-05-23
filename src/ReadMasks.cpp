@@ -41,8 +41,7 @@ namespace Maskgen {
  * note that T('?') is valid for unicode as the codepoint of ASCII character is their value
  */
 template<typename T, T escapeChar = T('?')>
-static Mask<T> readMask(const std::vector<T> &str, const CharsetMap<T> &defined_charsets) {
-    Mask<T> mask;
+bool readMask(const std::vector<T> &str, const CharsetMap<T> &defined_charsets, Mask<T> &mask) {
     for (size_t i = 0; i < str.size();) {
         if (str[i] == escapeChar && i + 1 < str.size()) {
             T key = str[i+1];
@@ -65,7 +64,7 @@ static Mask<T> readMask(const std::vector<T> &str, const CharsetMap<T> &defined_
                         key_str[l] = 0;
                         fprintf(stderr, "Error: charset '?%s' is not defined\n", key_str);
                     }
-                    return Mask<T>();
+                    return false;
                 }
             }
             i += 2;
@@ -76,7 +75,7 @@ static Mask<T> readMask(const std::vector<T> &str, const CharsetMap<T> &defined_
         }
     }
     
-    return mask;
+    return true;
 }
 
 /* Read a line from a mask file
@@ -143,7 +142,8 @@ static bool readMaskLine_(const T *line, size_t line_len, const CharsetMap<T> &c
         }
     }
     
-    mask = readMask<T, charsetEscapeChar>(tokens.back(), effective_charsets);
+    mask.clear();
+    readMask<T, charsetEscapeChar>(tokens.back(), effective_charsets, mask);
     if (mask.getWidth() == 0) {
         return false;
     }
@@ -207,7 +207,8 @@ bool readMaskListAscii(const char *spec, const CharsetMapAscii &charsets, MaskLi
     }
     
     std::vector<char> spec_v(spec, spec + strlen(spec));
-    Mask<char> mask = readMask<char>(spec_v, charsets);
+    Mask<char> mask;
+    readMask<char>(spec_v, charsets, mask);
     if (mask.getWidth() == 0) {
         return false;
     }
@@ -290,7 +291,8 @@ bool readMaskListUtf8(const char *spec, const CharsetMapUnicode &charsets, MaskL
         std::vector<uint32_t> spec_v(conv_buf, conv_buf + conv_written);
         free(conv_buf);
         
-        Mask<uint32_t> mask = readMask<uint32_t>(spec_v, charsets);
+        Mask<uint32_t> mask;
+        readMask<uint32_t>(spec_v, charsets, mask);
         if (mask.getWidth() == 0) {
             return false;
         }
@@ -401,22 +403,20 @@ template<> bool MaskFileGenerator<char>::operator()(Maskgen::Mask<char> &mask) {
             continue;
         }
         
-        Mask<char> mask_;
+        mask.clear();
         if (m_command_line_mask) {
-            mask_ = readMask<char>({m_content, m_content + m_content_len}, m_charsets);
-            if (mask_.getWidth() == 0) {
+            readMask<char>({m_content, m_content + m_content_len}, m_charsets, mask);
+            if (mask.getWidth() == 0) {
                 m_error = true;
                 return false;
             }
             else {
-                mask = mask_;
                 return true;
             }
         }
         else {
             // full parser when reading from a file
-            if (readMaskLine_<char>(line, r, m_charsets, mask_)) {
-                mask = mask_;
+            if (readMaskLine_<char>(line, r, m_charsets, mask)) {
                 return true;
             }
             m_error = true;
@@ -465,22 +465,20 @@ template<> bool MaskFileGenerator<uint32_t>::operator()(Maskgen::Mask<uint32_t> 
             return false;
         }
         
-        Mask<uint32_t> mask_;
+        mask.clear();
         if (m_command_line_mask) {
-            mask_ = readMask<uint32_t>({conv_buf, conv_buf + conv_written}, m_charsets);
-            if (mask_.getWidth() == 0) {
+            readMask<uint32_t>({conv_buf, conv_buf + conv_written}, m_charsets, mask);
+            if (mask.getWidth() == 0) {
                 m_error = true;
                 return false;
             }
             else {
-                mask = mask_;
                 return true;
             }
         }
         else {
             // full parser when reading from a file
-            if (readMaskLine_<uint32_t>(conv_buf, conv_written, m_charsets, mask_)) {
-                mask = mask_;
+            if (readMaskLine_<uint32_t>(conv_buf, conv_written, m_charsets, mask)) {
                 free(conv_buf);
                 return true;
             }

@@ -551,6 +551,26 @@ int work(const struct Options &options, const char *mask_arg) {
     return 0;
 }
 
+/**
+* @brief A wrapper around __builtin_uaddl_overflow or __builtin_uaddll_overflow depending of the exact type of uint64_t
+* 
+* @param a first operand
+* @param b second operand
+* @param res a + b
+* @return true if overflow
+*/
+static bool uadd64_overflow(uint64_t a, uint64_t b, uint64_t *res) {
+    static_assert(std::is_same<uint64_t, unsigned long>::value || std::is_same<uint64_t, unsigned long long>::value, "Expecting either unsigned long or unsigned long long for uint64_t...");
+    if (std::is_same<uint64_t, unsigned long>::value) {
+        return __builtin_uaddl_overflow(a, b, (unsigned long *) res);
+    }
+    else if (std::is_same<uint64_t, unsigned long long >::value) {
+        return __builtin_uaddll_overflow(a, b, (unsigned long long *) res);
+    }
+    *res = a + b;
+    return false;
+}
+
 template<typename T>
 int work__(const struct Options &options, const char *mask_arg) {
     static_assert(std::is_same<T, char>::value || std::is_same<T, uint32_t>::value, "word requires char or uint32_t as template parameter");
@@ -624,7 +644,10 @@ int work__(const struct Options &options, const char *mask_arg) {
     {
         Mask<T> tmpmask;
         while (gen->good() && (*gen)(tmpmask)) {
-            ml_len += tmpmask.getLen();
+            if (uadd64_overflow(ml_len, tmpmask.getLen(), &ml_len)) {
+                fprintf(stderr, "Error: the total number of words would overflow a 64 bits integer\n");
+                abort();
+            }
             ml_max_width = std::max<size_t>(ml_max_width, tmpmask.getWidth());
         }
     }

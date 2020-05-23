@@ -42,26 +42,6 @@ class MaskList
     typename decltype(m_masks)::iterator m_current_mask;    /*<! iterator to the current mask */
     uint64_t m_mask_rem;                /*!< number of words remaining in the current mask */
     size_t m_max_width;                 /*!< maximum of the width of the masks */
-   
-   /**
-    * @brief A wrapper around __builtin_uaddl_overflow or __builtin_uaddll_overflow depending of the exact type of uint64_t
-    * 
-    * @param a first operand
-    * @param b second operand
-    * @param res a + b
-    * @return true if overflow
-    */
-   static bool uadd64_overflow(uint64_t a, uint64_t b, uint64_t *res) {
-        static_assert(std::is_same<uint64_t, unsigned long>::value || std::is_same<uint64_t, unsigned long long>::value, "Expecting either unsigned long or unsigned long long for uint64_t...");
-        if (std::is_same<uint64_t, unsigned long>::value) {
-            return __builtin_uaddl_overflow(a, b, (unsigned long *) res);
-        }
-        else if (std::is_same<uint64_t, unsigned long long >::value) {
-            return __builtin_uaddll_overflow(a, b, (unsigned long long *) res);
-        }
-        *res = a + b;
-        return false;
-    }
 
 public:
     MaskList() : m_masks(), m_len(0), m_current_mask(m_masks.begin()), m_mask_rem(0), m_max_width(0) {}

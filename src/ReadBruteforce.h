@@ -17,39 +17,27 @@
 #pragma once
 
 #include "ReadCharsets.h"
-#include "MaskList.h"
-
-#include <cstdint>
-#include <vector>
-
-namespace Maskgen {
-
-/**
- * @brief Read a bruteforce description file, for 8-bit masks
- *
- * @param bruteforce file
- * @param charsets known charsets
- * @param ml output mask list
- * @return false an error occured
- */
-bool readBruteforceAscii(const char *spec, const CharsetMapAscii &charsets, MaskList<char> &ml);
-/**
- * @brief Read a bruteforce description file, for unicode masks. The file must be UTF-8 encoded
- *
- * The content of the file or the string \a spec must be UTF-8 encoded
- *
- * @param bruteforce file
- * @param charsets known charsets
- * @param ml output mask list
- * @return false an error occured
- */
-bool readBruteforceUtf8(const char *spec, const CharsetMapUnicode &charsets, MaskList<uint32_t> &ml);
-
-}
-
 #include "MaskGenerator.h"
 
 namespace Maskgen {
-    MaskGenerator<char> *readBruteforceAscii__(const char *spec, const CharsetMapAscii &charsets);
-    MaskGenerator<uint32_t> *readBruteforceUtf8__(const char *spec, const CharsetMapUnicode &charsets);
+    
+/**
+ * @brief Read a bruteforce description file, for 8-bit masks, and return a MaskGenerator for this bruteforce
+ *
+ * @param bruteforce file
+ * @param charsets known charsets
+ * @return new MaskGenerator or NULL
+ */
+MaskGenerator<char> *readBruteforceAscii(const char *spec, const CharsetMapAscii &charsets);
+/**
+ * @brief Read a bruteforce description file, for unicode masks, and return a MaskGenerator for this bruteforce
+ * 
+ * The content of the file or the string \a spec must be UTF-8 encoded
+ * 
+ * @param bruteforce file
+ * @param charsets known charsets
+ * @return new MaskGenerator or NULL
+ */
+MaskGenerator<uint32_t> *readBruteforceUtf8(const char *spec, const CharsetMapUnicode &charsets);
+
 }

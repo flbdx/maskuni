@@ -83,7 +83,7 @@ bool readMask(const std::vector<T> &str, const CharsetMap<T> &defined_charsets, 
  * note that T('?') and T(',') are valid for unicode as the codepoint of ASCII character is their value
  */
 template<typename T, T charsetEscapeChar = T('?'), T lineEscapeChar = ('\\'), T separatorChar = T(','), T commentChar = T('#')>
-static bool readMaskLine_(const T *line, size_t line_len, const CharsetMap<T> &charsets, Mask<T> &mask) {
+static bool readMaskLine(const T *line, size_t line_len, const CharsetMap<T> &charsets, Mask<T> &mask) {
     CharsetMap<T> effective_charsets = charsets;
                 
     std::vector<std::vector<T>> tokens;
@@ -147,158 +147,6 @@ static bool readMaskLine_(const T *line, size_t line_len, const CharsetMap<T> &c
     if (mask.getWidth() == 0) {
         return false;
     }
-    return true;
-}
-
-template<typename T, T charsetEscapeChar = T('?'), T lineEscapeChar = ('\\'), T separatorChar = T(','), T commentChar = T('#')>
-static bool readMaskLine(const T *line, size_t line_len, const CharsetMap<T> &charsets, MaskList<T> &ml) {
-    Mask<T> mask;
-    if (readMaskLine_<T>(line, line_len, charsets, mask)) {
-        ml.pushMask(mask);
-        return true;
-    }
-    return false;
-}
-
-bool readMaskListAscii(const char *spec, const CharsetMapAscii &charsets, MaskList<char> &ml)
-{
-#if defined(__WINDOWS__) || defined(__CYGWIN__)
-    int fd = open(spec, O_RDONLY | O_BINARY);
-#else
-    int fd = open(spec, O_RDONLY);
-#endif
-    if (fd >= 0) {
-        struct stat st;
-        if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode)) {
-            char *line = NULL;
-            size_t line_size = 0;
-            FILE *f = fdopen(fd, "rb");
-            ssize_t r;
-            unsigned int line_number = 0;
-            while ((r = getline(&line, &line_size, f))!= -1) {
-                line_number++;
-                if (r >= 2 && line[r-1] == '\n' && line[r-2] == '\r') {
-                    line[r-2] = '\0';
-                    r -= 2;
-                }
-                else if (r >= 1 && line[r-1] == '\n') {
-                    line[r-1] = '\0';
-                    r -= 1;
-                }
-                if (r == 0) {
-                    continue;
-                }
-                
-                if (!readMaskLine<char>(line, r, charsets, ml)) {
-                    fprintf(stderr, "Error while reading '%s' at line %u\n", spec, line_number);
-                    free(line);
-                    fclose(f);
-                    return false;
-                }
-            }
-            
-            free(line);
-            fclose(f);
-            return true;
-        }
-        else {
-            close(fd);
-        }
-    }
-    
-    std::vector<char> spec_v(spec, spec + strlen(spec));
-    Mask<char> mask;
-    readMask<char>(spec_v, charsets, mask);
-    if (mask.getWidth() == 0) {
-        return false;
-    }
-    ml.pushMask(mask);
-    
-    return true;
-}
-
-bool readMaskListUtf8(const char *spec, const CharsetMapUnicode &charsets, MaskList<uint32_t> &ml)
-{
-#if defined(__WINDOWS__) || defined(__CYGWIN__)
-    int fd = open(spec, O_RDONLY | O_BINARY);
-#else
-    int fd = open(spec, O_RDONLY);
-#endif
-    if (fd >= 0) {
-        struct stat st;
-        if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode)) {
-            char *line = NULL;
-            size_t line_size = 0;
-            uint32_t *conv_buf = NULL;
-            size_t conv_buf_size = 0;
-            size_t conv_consumed = 0, conv_written = 0;
-            FILE *f = fdopen(fd, "rb");
-            ssize_t r;
-            unsigned int line_number = 0;
-            while ((r = getline(&line, &line_size, f)) >= 0) {
-                line_number++;
-                if (r >= 2 && line[r-1] == '\n' && line[r-2] == '\r') {
-                    line[r-2] = '\0';
-                    r -= 2;
-                }
-                else if (r >= 1 && line[r-1] == '\n') {
-                    line[r-1] = '\0';
-                    r -= 1;
-                }
-                if (r == 0) {
-                    continue;
-                }
-                
-                UTF::decode_utf8(line, r, &conv_buf, &conv_buf_size, &conv_consumed, &conv_written);
-                if (conv_consumed != (size_t) r) {
-                    fprintf(stderr, "Error: the mask file '%s' contains invalid UTF-8 chars at line %u\n", spec, line_number);
-                    free(line);
-                    free(conv_buf);
-                    fclose(f);
-                    return false;
-                }
-                
-                if (!readMaskLine<uint32_t>(conv_buf, conv_written, charsets, ml)) {
-                    fprintf(stderr, "Error while reading '%s' at line %u\n", spec, line_number);
-                    free(line);
-                    free(conv_buf);
-                    fclose(f);
-                    return false;
-                }
-            }
-            
-            free(line);
-            free(conv_buf);
-            fclose(f);
-            return true;
-        }
-        else {
-            close(fd);
-        }
-    }
-    
-    {
-        size_t spec_len = strlen(spec);
-        uint32_t *conv_buf = NULL;
-        size_t conv_buf_size = 0;
-        size_t conv_consumed = 0, conv_written = 0;
-        UTF::decode_utf8(spec, spec_len, &conv_buf, &conv_buf_size, &conv_consumed, &conv_written);
-        if (spec_len != conv_consumed) {
-            fprintf(stderr, "Error: the mask '%s' contains invalid UTF-8 chars\n", spec);
-            free(conv_buf);
-            return false;
-        }
-        std::vector<uint32_t> spec_v(conv_buf, conv_buf + conv_written);
-        free(conv_buf);
-        
-        Mask<uint32_t> mask;
-        readMask<uint32_t>(spec_v, charsets, mask);
-        if (mask.getWidth() == 0) {
-            return false;
-        }
-        ml.pushMask(mask);
-    }
-    
     return true;
 }
 
@@ -416,7 +264,7 @@ template<> bool MaskFileGenerator<char>::operator()(Maskgen::Mask<char> &mask) {
         }
         else {
             // full parser when reading from a file
-            if (readMaskLine_<char>(line, r, m_charsets, mask)) {
+            if (readMaskLine<char>(line, r, m_charsets, mask)) {
                 return true;
             }
             m_error = true;
@@ -478,7 +326,7 @@ template<> bool MaskFileGenerator<uint32_t>::operator()(Maskgen::Mask<uint32_t> 
         }
         else {
             // full parser when reading from a file
-            if (readMaskLine_<uint32_t>(conv_buf, conv_written, m_charsets, mask)) {
+            if (readMaskLine<uint32_t>(conv_buf, conv_written, m_charsets, mask)) {
                 free(conv_buf);
                 return true;
             }
@@ -493,7 +341,7 @@ template<> bool MaskFileGenerator<uint32_t>::operator()(Maskgen::Mask<uint32_t> 
 }
 
 template<typename T>
-MaskGenerator<T> *readMaskList__(const char *spec, const CharsetMap<T> &charsets) {
+MaskGenerator<T> *readMaskList(const char *spec, const CharsetMap<T> &charsets) {
 #if defined(__WINDOWS__) || defined(__CYGWIN__)
     int fd = open(spec, O_RDONLY | O_BINARY);
 #else
@@ -531,12 +379,12 @@ MaskGenerator<T> *readMaskList__(const char *spec, const CharsetMap<T> &charsets
     return new MaskFileGenerator<T>(content, content_len, true, spec, charsets);
 }
 
-MaskGenerator<char> *readMaskListAscii__(const char *spec, const CharsetMapAscii &charsets) {
-    return readMaskList__<char>(spec, charsets);
+MaskGenerator<char> *readMaskListAscii(const char *spec, const CharsetMapAscii &charsets) {
+    return readMaskList<char>(spec, charsets);
 }
 
-MaskGenerator<uint32_t> *readMaskListUtf8__(const char *spec, const CharsetMapUnicode &charsets) {
-    return readMaskList__<uint32_t>(spec, charsets);
+MaskGenerator<uint32_t> *readMaskListUtf8(const char *spec, const CharsetMapUnicode &charsets) {
+    return readMaskList<uint32_t>(spec, charsets);
 }
 
 }

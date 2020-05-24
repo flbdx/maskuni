@@ -17,45 +17,35 @@
 #pragma once
 
 #include "ReadCharsets.h"
-#include "MaskList.h"
-
-#include <cstdint>
-#include <vector>
-#include <map>
-#include <algorithm>
+#include "MaskGenerator.h"
 
 namespace Maskgen {
-
+    
 /**
- * @brief Read an 8-bits mask list from a file or from the mask given by \a spec
+ * @brief Read an 8-bits mask list from a file or from the mask given by \a spec and return a MaskGenerator for the masks
  * If a file named \a spec exists then the masks are read from the file
  * Otherwise the content of the mask list is the single mask created from the string \a spec
  * 
+ * The list is not validated.
+ * 
  * @param spec mask file or mask string
  * @param charsets known charsets
- * @param ml output mask list
- * @return false an error occured
+ * @return new MaskGenerator or NULL
  */
-bool readMaskListAscii(const char *spec, const CharsetMapAscii &charsets, MaskList<char> &ml);
+MaskGenerator<char> *readMaskListAscii(const char *spec, const CharsetMapAscii &charsets);
 /**
- * @brief Read an unicode mask list from a file or from the mask given by \a spec
+ * @brief Read an unicode mask list from a file or from the mask given by \a spec and return a MaskGenerator for the masks
  * If a file named \a spec exists then the masks are read from the file
  * Otherwise the content of the mask list is the single mask created from the string \a spec
  * 
  * The content of the file or the string \a spec must be UTF-8 encoded
  * 
+ * The list is not validated.
+ * 
  * @param spec mask file or mask string
  * @param charsets known charsets
- * @param ml output mask list
- * @return false an error occured
+ * @return new MaskGenerator or NULL
  */
-bool readMaskListUtf8(const char *spec, const CharsetMapUnicode &charsets, MaskList<uint32_t> &ml);
+MaskGenerator<uint32_t> *readMaskListUtf8(const char *spec, const CharsetMapUnicode &charsets);
 
-}
-
-#include "MaskGenerator.h"
-
-namespace Maskgen {
-    MaskGenerator<char> *readMaskListAscii__(const char *spec, const CharsetMapAscii &charsets);
-    MaskGenerator<uint32_t> *readMaskListUtf8__(const char *spec, const CharsetMapUnicode &charsets);
 }

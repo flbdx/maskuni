@@ -41,7 +41,7 @@ In addition, Maskgen has two internal generators:
 In its mask mode, Maskgen is largely compatible with the syntax of [Hashcat](https://hashcat.net/hashcat/) and [Maskprocessor](https://github.com/hashcat/maskprocessor).
 
 ### Bruteforce mode
-This mode actually generates a list of masks from a set of constraints:
+This mode actually generates masks from a set of constraints:
 - the word's width
 - a list of charsets each with a minimum and a maximum number of occurrences.
 
@@ -94,8 +94,8 @@ Unit is million of words per second.
 Tested on a Intel core i5 @3.5Ghz writing to `/dev/null`.
 |Mask|Maskgen|Maskprocessor|Maskgen with unicode|
 |--|--|--|--|
-|?l?l?l?l?l?l|147.1|135.5|45.6|
-|?d?d?d?d?d?d?d?d?d|141.2|130.5|35.0|
+|?l?l?l?l?l?l|153.7|135.5|53.5|
+|?d?d?d?d?d?d?d?d?d|148.3|130.7|40.4|
 
 So it's pretty fast. But 2/3rd of the time is spent copying and writing the words to the output. The consuming program will also lose a significant amount of time reading from its standard input.
 Therefore a standalone word generator is more suited for creating dictionaries or feeding slow consumers.
@@ -210,7 +210,7 @@ where the placeholders are as follows:
 - `:max:` the maximum number of occurrences of the charset on the same line
 - `:charset:` a charset
 
-It's easy to create really huge attacks with the bruteforce mode. In addition, avoid attacks that would generate a lot of masks as all the masks generated from a bruteforce file are stored in memory and it may become rather huge when storing millions of masks!
+It's easy to create really huge attacks with the bruteforce mode so be careful :-)
 
 ## Usage
 

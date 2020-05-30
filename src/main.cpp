@@ -432,13 +432,14 @@ int work(const struct Options &options, const char *mask_arg) {
     uint64_t ml_len = 0;
     size_t ml_max_width = 0;
     {
-        Mask<T> tmpmask;
-        while (gen->good() && (*gen)(tmpmask)) {
-            if (uadd64_overflow(ml_len, tmpmask.getLen(), &ml_len)) {
+        uint64_t size;
+        size_t width;
+        while (gen->good() && (*gen)(size, width)) {
+            if (uadd64_overflow(ml_len, size, &ml_len)) {
                 fprintf(stderr, "Error: the total number of words would overflow a 64 bits integer\n");
                 abort();
             }
-            ml_max_width = std::max<size_t>(ml_max_width, tmpmask.getWidth());
+            ml_max_width = std::max<size_t>(ml_max_width, width);
         }
     }
     if (!gen->good()) {
@@ -485,6 +486,7 @@ int work(const struct Options &options, const char *mask_arg) {
     
     if (options.m_print_size) {
         printf("%" PRId64 "\n", end_idx - start_idx);
+        delete gen;
         return 0;
     }
     
@@ -581,6 +583,7 @@ int work(const struct Options &options, const char *mask_arg) {
     if (fdout != STDOUT_FILENO) {
         close(fdout);
     }
+    delete gen;
     return 0;
 }
 

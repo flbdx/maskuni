@@ -117,16 +117,20 @@ public:
                     target_len,
                     std::make_shared<typename decltype(params.mask)::element_type>()
                     },
-            vars() {}
+            vars {0, NULL} {}
 
     // copy a generator and reset it's state
-    SecondStageGen(const SecondStageGen &o) : state(0), params(o.params), vars() {}
+    SecondStageGen(const SecondStageGen &o) : state(0), params(o.params), vars {0, NULL} {}
+    
+    ~SecondStageGen() {
+        delete vars.ngen;
+    }
 
-    bool operator()(std::list<const ConstrainedCharset<T> *> &mask_out) {
+    bool operator()(const std::list<const ConstrainedCharset<T> *> ** mask_out) {
         crBegin
         if (params.mask->size() == params.target_len) {
             // done cooking!
-            mask_out = *params.mask;
+            *mask_out = params.mask.get();
             crReturn
         }
         else {
@@ -142,6 +146,7 @@ public:
                     params.counts[vars.i].second++;
                     params.mask->pop_back();
                     delete vars.ngen;
+                    vars.ngen = NULL;
                 }
             }
         }
@@ -152,7 +157,7 @@ public:
 /**
  * @brief Create the masks from the given charsets and constraints
  * 
- * This generator yields he masks satisfying the set of constraints
+ * This generator yields the masks satisfying the set of constraints
  * 
  * The first stage of the mask generation is to deduce some valid reduced constraints.
  * For example, if we have:
@@ -183,9 +188,14 @@ class FirstStageGen {
 
 public:
     FirstStageGen(const std::vector<ConstrainedCharset<T>> &constraints, unsigned int target_len):
-        state(0), params {constraints, target_len}, vars() {}
+        state(0), params {constraints, target_len}, vars{{}, 0, NULL} {}
+        
+    ~FirstStageGen() {
+        delete vars.gen2;
+    }
 
-    bool operator()(std::list<const ConstrainedCharset<T> *> &mask_out) {
+    // the returned pointer is valid until the next call and should not be modified
+    bool operator()(const std::list<const ConstrainedCharset<T> *> ** mask_out) {
         crBegin
 
         // initialize the number of occurrences with the minimum allowed for each charsets
@@ -215,6 +225,7 @@ public:
                     crReturn
                 }
                 delete vars.gen2;
+                vars.gen2 = NULL;
             }
 
             // increment the combination
@@ -238,6 +249,7 @@ public:
             }
         }
 
+        *mask_out = NULL;
         crFinish
     }
 };
@@ -271,14 +283,15 @@ public:
         delete m_gen;
     }
     
-    bool operator()(Maskgen::Mask<T> &mask) {
+    // main generator, returns the full mask
+    bool operator()(Maskgen::Mask<T> &mask) override {
         if (m_done) {
             return false;
         }
-        std::list<const ConstrainedCharset<T> *> mask_l;
-        if ((*m_gen)(mask_l)) {
+        const std::list<const ConstrainedCharset<T> *> *mask_l = NULL;
+        if ((*m_gen)(&mask_l)) {
             mask.clear();
-            for (auto &c: mask_l) {
+            for (auto &c: *mask_l) {
                 mask.push_charset_right(c->m_charset);
             }
             return true;
@@ -289,13 +302,37 @@ public:
         }
     }
     
-    void reset() {
+    // second generator to get the next mask size and width.
+    // faster than operator()(&mask)
+    bool operator()(uint64_t &size, size_t &width) override {
+        if (m_done) {
+            return false;
+        }
+        const std::list<const ConstrainedCharset<T> *> *mask_l = NULL;
+        if ((*m_gen)(&mask_l)) {
+            width = m_target_len;
+            size = (width == 0) ? 0 : 1;
+            for (auto &c: *mask_l) {
+                if (umul64_overflow(size, c->m_charset.getLen(), &size)) {
+                    fprintf(stderr, "Error: the length of the mask would overflow a 64 bits integer\n");
+                    abort();
+                }
+            }
+            return true;
+        }
+        else {
+            m_done = true;
+            return false;
+        }
+    }
+    
+    void reset() override {
         delete m_gen;
         m_gen = new FirstStageGen<T>(m_constraints, m_target_len);
         m_done = false;
     }
     
-    bool good() {
+    bool good() override {
         return true; // we don't do errors here. 
     }
 };

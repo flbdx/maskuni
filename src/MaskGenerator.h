@@ -38,7 +38,6 @@ public:
     
     virtual ~MaskGenerator<T>() {}
     
-    
     /**
      * @brief generation method
      * 
@@ -46,11 +45,32 @@ public:
      * @return true if a mask was generated, false when there is no more mask or if there was an error
      */
     virtual bool operator()(Maskgen::Mask<T> &mask) = 0;
+    
+    /**
+     * @brief generation method, get only the next mask's size and width
+     * 
+     * Should be overwritten to provide a faster version
+     * 
+     * @param size the new mask's size is copied into \a size
+     * @param width the new mask's width is copied into \a width
+     * @return true if a mask was generated, false when there is no more mask or if there was an error
+     */
+    virtual bool operator()(uint64_t &size, size_t &width) {
+        Maskgen::Mask<T> tmpmask;
+        if ((*this)(tmpmask)) {
+            size = tmpmask.getLen();
+            width = tmpmask.getWidth();
+            return true;
+        }
+        return false;
+    }
+    
     /**
      * @brief Reset the generator
      * 
      */
     virtual void reset() = 0;
+    
     /**
      * @brief Test if there was an error
      * 

@@ -92,7 +92,7 @@ struct ConstrainedCharset {
 template<typename T>
 class SecondStageGen {
     unsigned int state;
-    struct {
+    struct P {
         // charsets with current remaining number of occurrences
         // this reference is shared with the parent FirstStageGen and the recursive
         // instances of SecondStateGen
@@ -105,7 +105,7 @@ class SecondStageGen {
     } params;
     struct { // generator's pseudo stack
         size_t i;
-        SecondStageGen<T> *ngen;
+        SecondStageGen<T> *ngen; // ngen is allocated on first use and kept until this is deleted
     } vars;
 
 public:
@@ -118,9 +118,26 @@ public:
                     std::make_shared<typename decltype(params.mask)::element_type>()
                     },
             vars {0, NULL} {}
-
-    // copy a generator and reset it's state
-    SecondStageGen(const SecondStageGen &o) : state(0), params(o.params), vars {0, NULL} {}
+    
+    // reset a generator by copying another, avoid some reallocations
+    // keep vars.ngen
+    void reset(const SecondStageGen &o) {
+        state = 0;
+        params.counts = o.params.counts;
+        params.target_len = o.params.target_len;
+        params.mask = o.params.mask;
+        vars.i = 0;
+    }
+    
+    // reset a generator with the constructor arguments, avoid some reallocations
+    // keep vars.ngen and reset params.mask
+    void reset(std::vector<std::pair<const ConstrainedCharset<T> *, unsigned int>> &counts, unsigned int target_len) {
+        state = 0;
+        params.counts = counts;
+        params.target_len = target_len;
+        params.mask->clear();
+        vars.i = 0;
+    }
     
     ~SecondStageGen() {
         delete vars.ngen;
@@ -138,15 +155,18 @@ public:
                 if (params.counts[vars.i].second > 0) {
                     params.counts[vars.i].second--;
                     params.mask->push_back(params.counts[vars.i].first);
-                    vars.ngen = new SecondStageGen(*this);
+                    if (vars.ngen == NULL) {
+                        vars.ngen = new SecondStageGen(*this);
+                    }
+                    else {
+                        vars.ngen->reset(*this);
+                    }
                     while ((*vars.ngen)(mask_out)) {
                         // climb back up
                         crReturn
                     }
                     params.counts[vars.i].second++;
                     params.mask->pop_back();
-                    delete vars.ngen;
-                    vars.ngen = NULL;
                 }
             }
         }
@@ -183,7 +203,7 @@ class FirstStageGen {
     struct {
         std::vector<std::pair<const ConstrainedCharset<T> *, unsigned int>> counts; // number of occurrences for each charsets
         unsigned int current_len; // current word's width
-        SecondStageGen<T> *gen2;
+        SecondStageGen<T> *gen2; // will be allocated on first use and kept until this is deleted
     } vars;
 
 public:
@@ -220,12 +240,15 @@ public:
             if (vars.current_len == params.target_len) {
                 // use the 2nd generator to generate its masks
                 // and yield them
-                vars.gen2 = new SecondStageGen<T>(vars.counts, params.target_len);
+                if (vars.gen2 == NULL) {
+                    vars.gen2 = new SecondStageGen<T>(vars.counts, params.target_len);
+                }
+                else {
+                    vars.gen2->reset(vars.counts, params.target_len);
+                }
                 while ((*vars.gen2)(mask_out)) {
                     crReturn
                 }
-                delete vars.gen2;
-                vars.gen2 = NULL;
             }
 
             // increment the combination

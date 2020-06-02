@@ -101,7 +101,7 @@ class SecondStageGen {
         unsigned int target_len;
         // current mask in cooking shared with the recursive instances of SecondStateGen
         // the ptr is allocated by the main constructor and copied by the 2nd
-        std::shared_ptr<std::list<const ConstrainedCharset<T> *>> mask;
+        std::shared_ptr<std::vector<const ConstrainedCharset<T> *>> mask;
     } params;
     struct { // generator's pseudo stack
         size_t i;
@@ -117,7 +117,9 @@ public:
                     target_len,
                     std::make_shared<typename decltype(params.mask)::element_type>()
                     },
-            vars {0, NULL} {}
+            vars {0, NULL} {
+                params.mask->reserve(params.target_len);
+            }
     
     // reset a generator by copying another, avoid some reallocations
     // keep vars.ngen
@@ -143,7 +145,7 @@ public:
         delete vars.ngen;
     }
 
-    bool operator()(const std::list<const ConstrainedCharset<T> *> ** mask_out) {
+    bool operator()(const std::vector<const ConstrainedCharset<T> *> ** mask_out) {
         crBegin
         if (params.mask->size() == params.target_len) {
             // done cooking!
@@ -215,7 +217,7 @@ public:
     }
 
     // the returned pointer is valid until the next call and should not be modified
-    bool operator()(const std::list<const ConstrainedCharset<T> *> ** mask_out) {
+    bool operator()(const std::vector<const ConstrainedCharset<T> *> ** mask_out) {
         crBegin
 
         // initialize the number of occurrences with the minimum allowed for each charsets
@@ -311,7 +313,7 @@ public:
         if (m_done) {
             return false;
         }
-        const std::list<const ConstrainedCharset<T> *> *mask_l = NULL;
+        const std::vector<const ConstrainedCharset<T> *> *mask_l = NULL;
         if ((*m_gen)(&mask_l)) {
             mask.clear();
             for (auto &c: *mask_l) {
@@ -331,7 +333,7 @@ public:
         if (m_done) {
             return false;
         }
-        const std::list<const ConstrainedCharset<T> *> *mask_l = NULL;
+        const std::vector<const ConstrainedCharset<T> *> *mask_l = NULL;
         if ((*m_gen)(&mask_l)) {
             width = m_target_len;
             size = (width == 0) ? 0 : 1;

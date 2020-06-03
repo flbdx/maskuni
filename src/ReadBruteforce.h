@@ -19,7 +19,7 @@
 #include "ReadCharsets.h"
 #include "MaskGenerator.h"
 
-namespace Maskgen {
+namespace Maskuni {
     
 /**
  * @brief Read a bruteforce description file, for 8-bit masks, and return a MaskGenerator for this bruteforce

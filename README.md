@@ -1,5 +1,5 @@
 
-# maskgen
+# maskuni
 
 A standalone fast word generator in the spirit of [hashcat's mask generator](https://hashcat.net/wiki/doku.php?id=mask_attack) with unicode support .
 
@@ -27,18 +27,18 @@ A standalone fast word generator in the spirit of [hashcat's mask generator](htt
 
 ## Overview
 
-Maskgen is a standalone word generator based on templates (masks) describing which characters are allowed at each positions of a word.
+Maskuni is a standalone word generator based on templates (masks) describing which characters are allowed at each positions of a word.
 
-Maskgen has two mode main modes of generation:
+Maskuni has two mode main modes of generation:
 - **mask mode**: the words are generated from a single mask or a list of mask read from a file
 - **bruteforce mode**: the words are generated from a target word length and a set of allowed charsets with constrained number of occurrences.
 
-In addition, Maskgen has two internal generators:
+In addition, Maskuni has two internal generators:
 - a generator for 8-bits charsets (like Hashcat's mask generator)
 - a generator for unicode charsets 🏆🤘 (internally working on 32-bits characters)
 
 ### Mask mode
-In its mask mode, Maskgen is largely compatible with the syntax of [Hashcat](https://hashcat.net/hashcat/) and [Maskprocessor](https://github.com/hashcat/maskprocessor).
+In its mask mode, Maskuni is largely compatible with the syntax of [Hashcat](https://hashcat.net/hashcat/) and [Maskprocessor](https://github.com/hashcat/maskprocessor).
 
 ### Bruteforce mode
 This mode actually generates masks from a set of constraints:
@@ -62,19 +62,19 @@ For example, a word of width 4 with a charset `1` allowed 0 to 4 times and a cha
 
 ### Other features
 - Unicode charsets:
-  - `maskgen --unicode -1 '?léè' '?1?1?1?1?1?1'`
+  - `maskuni --unicode -1 '?léè' '?1?1?1?1?1?1'`
 - A few more built-in charsets than hashcat and less restrictions on user-defined charsets
-  - named charsets: `maskgen --unicode --charset €:€£¥ maskfile`
-  - extend predefined charsets: `maskgen --unicode --charset l:?léèà --charset u:?uÉÈ maskfile`
+  - named charsets: `maskuni --unicode --charset €:€£¥ maskfile`
+  - extend predefined charsets: `maskuni --unicode --charset l:?léèà --charset u:?uÉÈ maskfile`
 - Control of the word delimiter (`\n`, `\0` or no delimiter)
 - A syntax for splitting the generation in equal parts (jobs)
-  - `maskgen -j 7/16 masklist`
+  - `maskuni -j 7/16 masklist`
 
 For unicode charsets, all inputs (charsets and masks) must be encoded in UTF-8 and the output is UTF-8 encoded.
 
 ### Building
 
-Maskgen requires:
+Maskuni requires:
 - GCC or Clang (GCC likely to produce faster code)
 - CMake
 - POSIX environment
@@ -92,7 +92,7 @@ $ make
 
 Unit is million of words per second.
 Tested on a Intel core i5 @3.5Ghz writing to `/dev/null`.
-|Mask|Maskgen|Maskprocessor|Maskgen with unicode|
+|Mask|Maskuni|Maskprocessor|Maskuni with unicode|
 |--|--|--|--|
 |?l?l?l?l?l?l|153.7|135.5|53.5|
 |?d?d?d?d?d?d?d?d?d|148.3|130.7|40.4|
@@ -100,7 +100,7 @@ Tested on a Intel core i5 @3.5Ghz writing to `/dev/null`.
 So it's pretty fast. But 2/3rd of the time is spent copying and writing the words to the output. The consuming program will also lose a significant amount of time reading from its standard input.
 Therefore a standalone word generator is more suited for creating dictionaries or feeding slow consumers.
 
-When unicode support is enabled, Maskgen is significantly slower as it will iterate over 32-bits unicode codepoints instead of 8-bits characters and therefore read or write 4 times as much memory for the same word width. And of course Maskgen must encode its output in UTF-8.
+When unicode support is enabled, Maskuni is significantly slower as it will iterate over 32-bits unicode codepoints instead of 8-bits characters and therefore read or write 4 times as much memory for the same word width. And of course Maskuni must encode its output in UTF-8.
 
 ## Syntaxes
 
@@ -120,13 +120,13 @@ For example, if a mask means `<digit>@passwd<digit><digit>`, the word processor 
 
 A charset is a named variable describing a set of characters.
 
-In its default mode, Maskgen allows only characters encoding on a fixed width 8-bit encoding (same as Hashcat). Maskgen also supports full unicode charsets when called with `--unicode`.
+In its default mode, Maskuni allows only characters encoding on a fixed width 8-bit encoding (same as Hashcat). Maskuni also supports full unicode charsets when called with `--unicode`.
 
 Charsets are named by a single character. They are referred by the syntax `?K` where `K` is the name of the charset.
 
 *When defining a charset, you may include another charset by writing its name (`?K`). A single `?` must be escaped by writing `??`.*
 
-Maskgen defines the following builtin charsets:
+Maskuni defines the following builtin charsets:
 
 ```
 ?l = abcdefghijklmnopqrstuvwxyz
@@ -153,7 +153,7 @@ A single `?` must be escaped by writing `??`.
 
 For example the previous example `<digit>@passwd<digit><digit>` is written `?d@passwd?d?d`.
 
-Maskgen iterates from right to left. So the output of this mask is:
+Maskuni iterates from right to left. So the output of this mask is:
 ```
 0@passwd00
 0@passwd01
@@ -194,7 +194,7 @@ where the placeholders are as follows:
 In addition:
 - a line may be commented out by starting the line with `#`
 - the backslash `\` character can be used to escape another char (`\,` for a comma or `\#` for a `#`)
-- as an extension, Maskgen allows up to 9 custom charsets at the beginning of a line
+- as an extension, Maskuni allows up to 9 custom charsets at the beginning of a line
 
 ### Bruteforce file syntax
 Bruteforce are specified by a file with the following syntax:
@@ -217,9 +217,9 @@ It's easy to create really huge attacks with the bruteforce mode so be careful :
 ```
 Usage:
   single mask or maskfile:
-    maskgen [--mask] [OPTIONS] (mask|maskfile)
+    maskuni [--mask] [OPTIONS] (mask|maskfile)
   bruteforce:
-    maskgen --bruteforce [OPTIONS] brutefile
+    maskuni --bruteforce [OPTIONS] brutefile
 Generate words based on templates (masks) describing each position's charset
 
  Behavior:
@@ -336,7 +336,7 @@ Generate words based on templates (masks) describing each position's charset
 
 A custom charset can be defined inline as an argument:
 ```
-$ ./maskgen -1 '01' '?1?1?1'
+$ ./maskuni -1 '01' '?1?1?1'
 000
 001
 010
@@ -350,7 +350,7 @@ $ ./maskgen -1 '01' '?1?1?1'
 Or by writing it inside a file (pay attention to any unwanted end of line character):
 ```
 $ echo -n 01 > charset_binary
-$ ./maskgen -1 charset_binary '?1?1'
+$ ./maskuni -1 charset_binary '?1?1'
 00
 01
 10
@@ -359,11 +359,11 @@ $ ./maskgen -1 charset_binary '?1?1'
 
 The options `-1`, `-2` to `-4` (or the long forms `--custom-charset1` to `--custom-charset4`) are shortcuts to define the charsets `?1` to `?4`.
 
-Maskgen will first try to open and read a file with the given value. If none is found then the charset is defined from the argument.
+Maskuni will first try to open and read a file with the given value. If none is found then the charset is defined from the argument.
 
 The option `-c` (or `--charset`) allows to define a charset with an arbitrary name:
 ```
-$ ./maskgen -c 'L:?l?u' '?L'
+$ ./maskuni -c 'L:?l?u' '?L'
 a
 b
 [...]
@@ -374,7 +374,7 @@ Z
 
 A charset may reference itself to extend its definition (including predefined charsets). For example:
 ```
-$ ./maskgen -c 1:123 -c 1:?1456 ?1
+$ ./maskuni -c 1:123 -c 1:?1456 ?1
 1
 2
 3
@@ -390,10 +390,10 @@ Masken will fully expand the user defined charsets (replace any `?X` by the corr
 A single mask can be given inline or in a mask list file.
 
 ```
-$ ./maskgen --size ?d?d?d?d?l?l
+$ ./maskuni --size ?d?d?d?d?l?l
 6760000
 $ echo ?d?d?d?d?l?l > mask
-$ ./maskgen --size mask
+$ ./maskuni --size mask
 6760000
 ```
 
@@ -415,7 +415,7 @@ $ cat masks_nums_1_10
 ?d?d?d?d?d?d?d?d
 ?d?d?d?d?d?d?d?d?d
 ?d?d?d?d?d?d?d?d?d?d
-$ ./maskgen --size masks_nums_1_10 
+$ ./maskuni --size masks_nums_1_10 
 11111111110
 ```
 
@@ -425,7 +425,7 @@ Example with inline charsets definition:
 $ cat masks
 ?l?u,?1?l?l?l?l
 ?l?u,*$,?1?l?l?l?l?2
-$ ./maskgen ./masks|grep -ie 'abcde'
+$ ./maskuni ./masks|grep -ie 'abcde'
 abcde
 Abcde
 abcde*
@@ -436,11 +436,11 @@ Abcde$
 
 ### Unicode charsets
 
-The default mode of Maskgen is limited to 8-bit characters, which may use any character encoding. Therefore it's not possible to use characters that are usually only available on multibyte character encodings such as UTF-8.
+The default mode of Maskuni is limited to 8-bit characters, which may use any character encoding. Therefore it's not possible to use characters that are usually only available on multibyte character encodings such as UTF-8.
 
-For example, it's not possible to use smileys with the default mode of Maskgen (same with Hashcat or maskprocessor):
+For example, it's not possible to use smileys with the default mode of Maskuni (same with Hashcat or maskprocessor):
 ```
-$ ./maskgen -1 '😂❤😍😊😭😘👍' emoji?1
+$ ./maskuni -1 '😂❤😍😊😭😘👍' emoji?1
 emoji�
 emoji�
 emoji�
@@ -450,10 +450,10 @@ emoji�
 
 This charset is read byte by byte and each byte is added to an 8-bit charset.
 
-Maskgen can handle such character with its unicode support, enabled with `-u` or `--unicode`. *When enabled, all inputs (charsets and masks) are treated as UTF-8 encoded and the output is UTF-8 encoded*.
+Maskuni can handle such character with its unicode support, enabled with `-u` or `--unicode`. *When enabled, all inputs (charsets and masks) are treated as UTF-8 encoded and the output is UTF-8 encoded*.
 
 ```
-$ ./maskgen -u -1 '😂❤😍😊😭😘👍' emoji?1
+$ ./maskuni -u -1 '😂❤😍😊😭😘👍' emoji?1
 emoji😂
 emoji❤
 emoji😍
@@ -472,9 +472,9 @@ $ cat bf_7l_01éè
 7
 0 7 ?l
 0 1 éè
-$ ./maskgen --unicode --bruteforce --size bf_7l_01éè
+$ ./maskuni --unicode --bruteforce --size bf_7l_01éè
 12356631040
-$ ./maskgen --unicode --bruteforce -j 80000/100000 bf_7l_01éè |head -5
+$ ./maskuni --unicode --bruteforce -j 80000/100000 bf_7l_01éè |head -5
 zzwrékg
 zzwrékh
 zzwréki
@@ -487,13 +487,13 @@ Scaling this up to 8 characters results in a huge keyspace of more than 3.37 x 1
 
 ### Partitioning the generation
 
-To split the word space in several part, Maskgen supports two mechanisms:
+To split the word space in several part, Maskuni supports two mechanisms:
 - explicit numbers of the first and last words
 - spliting in N equal parts (jobs)
 
 The first method use the options `-b` (`--begin`) and/or `-e` (`--end`) with words numbered from 0:
 ```
-$ ./maskgen -b 5 -e 7 ?d
+$ ./maskuni -b 5 -e 7 ?d
 5
 6
 7
@@ -502,17 +502,17 @@ $ ./maskgen -b 5 -e 7 ?d
 The second method defines a job number N out of a given total. Jobs are numbered from 1.
 
 ```
-$ ./maskgen -j 1/5 ?d
+$ ./maskuni -j 1/5 ?d
 0
 1
-$ ./maskgen -j 4/5 ?d
+$ ./maskuni -j 4/5 ?d
 6
 7
 ```
 
 The job specification is convenient to efficiently run treatments in parallel. For example using GNU parallel:
 ```
-$ work() { ./maskgen -j "$1/$2" ?l?l?l?l?l?l | mytool; }
+$ work() { ./maskuni -j "$1/$2" ?l?l?l?l?l?l | mytool; }
 $ export -f work
 $ N_JOBS=500
 $ seq $N_JOBS | parallel -j 8 --progress work {} $N_JOBS

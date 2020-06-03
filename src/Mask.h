@@ -22,7 +22,7 @@
 #include "overflow.h"
 #include <vector>
 
-namespace Maskgen {
+namespace Maskuni {
 
 /**
  * @brief Hold a mask and iterate over its content

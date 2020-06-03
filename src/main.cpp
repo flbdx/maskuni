@@ -35,15 +35,15 @@
 #include "ReadBruteforce.h"
 #include "utf_conv.h"
 
-using namespace Maskgen;
+using namespace Maskuni;
 
 static void short_usage()
 {
     const char *help_string =
     "Usage:\n"
-    "  maskgen [--mask] [OPTIONS] (mask|maskfile)\n"
-    "  maskgen --bruteforce [OPTIONS] brutefile\n"
-    "Try 'maskgen --help' to get more information.\n";
+    "  maskuni [--mask] [OPTIONS] (mask|maskfile)\n"
+    "  maskuni --bruteforce [OPTIONS] brutefile\n"
+    "Try 'maskuni --help' to get more information.\n";
     printf("%s", help_string);
 }
 
@@ -52,9 +52,9 @@ static void usage()
     const char *help_string = 
     "Usage:\n"
     "  single mask or maskfile:\n"
-    "    maskgen [--mask] [OPTIONS] (mask|maskfile)\n"
+    "    maskuni [--mask] [OPTIONS] (mask|maskfile)\n"
     "  bruteforce:\n"
-    "    maskgen --bruteforce [OPTIONS] brutefile\n"
+    "    maskuni --bruteforce [OPTIONS] brutefile\n"
     "Generate words based on templates (masks) describing each position's charset\n"
     "\n"
     " Behavior:\n"
@@ -672,7 +672,7 @@ int real_main(int argc, char **argv)
                 usage();
                 return 0;
             case 'V':
-                fprintf(stdout, "Maskgen version %s\n", MASKGEN_VERSION_STRING);
+                fprintf(stdout, "Maskuni version %s\n", MASKUNI_VERSION_STRING);
                 fprintf(stdout, "This sofware is distributed under the Apache License version 2.0\n");
                 return 0;
             case '1':

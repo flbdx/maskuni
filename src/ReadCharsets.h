@@ -21,7 +21,7 @@
 #include <algorithm>
 #include <map>
 
-namespace Maskgen {
+namespace Maskuni {
 
 /**
  * @brief Describe a builtin charset or a user defined charset

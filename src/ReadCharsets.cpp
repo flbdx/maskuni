@@ -27,7 +27,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-namespace Maskgen {
+namespace Maskuni {
     
 static const char default_charset_l[] = "abcdefghijklmnopqrstuvwxyz";
 static const char default_charset_u[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";

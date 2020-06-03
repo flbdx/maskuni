@@ -19,7 +19,7 @@
 #include <cstdint>
 #include <type_traits>
 
-namespace Maskgen {
+namespace Maskuni {
 
 /**
 * @brief A wrapper around __builtin_umull_overflow or __builtin_umulll_overflow depending of the exact type of uint64_t

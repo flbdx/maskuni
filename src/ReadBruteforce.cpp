@@ -37,7 +37,7 @@
 # include "getline.h"
 #endif
 
-namespace Maskgen {
+namespace Maskuni {
 
 /**
  * @brief Describe a charset and its constraints
@@ -309,7 +309,7 @@ public:
     }
     
     // main generator, returns the full mask
-    bool operator()(Maskgen::Mask<T> &mask) override {
+    bool operator()(Maskuni::Mask<T> &mask) override {
         if (m_done) {
             return false;
         }
@@ -401,7 +401,7 @@ struct HelperUnicode
  * @param T Either char or 8-bit charsets or uint32_t for unicode codepoints
  * @param spec filename
  * @param charsets defined charsets
- * @return new Maskgenerator or NULL on error
+ * @return new MaskGenerator or NULL on error
  */
 template<typename T>
 MaskGenerator<T> *readBruteforce(const char *spec, const CharsetMap<T> &charsets)

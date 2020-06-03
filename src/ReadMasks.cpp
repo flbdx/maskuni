@@ -33,7 +33,7 @@
 # include "getline.h"
 #endif
 
-namespace Maskgen {
+namespace Maskuni {
 
 /* create a mask from a string and all the defined charsets
  * Return an empty mask if there was an error (undefined charset)
@@ -218,7 +218,7 @@ public:
         free(m_filename);
     }
     
-    bool operator()(Maskgen::Mask<T> &mask);
+    bool operator()(Maskuni::Mask<T> &mask);
     
     void reset() {
         m_p = m_content;
@@ -232,7 +232,7 @@ public:
     
 };
 
-template<> bool MaskFileGenerator<char>::operator()(Maskgen::Mask<char> &mask) {
+template<> bool MaskFileGenerator<char>::operator()(Maskuni::Mask<char> &mask) {
     const char *line;
     size_t r;
     while (true) {
@@ -277,7 +277,7 @@ template<> bool MaskFileGenerator<char>::operator()(Maskgen::Mask<char> &mask) {
 }
 
 // compared to the char version, this adds a UTF-8 decoding
-template<> bool MaskFileGenerator<uint32_t>::operator()(Maskgen::Mask<uint32_t> &mask) {
+template<> bool MaskFileGenerator<uint32_t>::operator()(Maskuni::Mask<uint32_t> &mask) {
     const char *line;
     size_t r;
     uint32_t *conv_buf = NULL;

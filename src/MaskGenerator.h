@@ -19,7 +19,7 @@
 #include "Mask.h"
 #include <memory>
 
-namespace Maskgen {
+namespace Maskuni {
 
 /**
  * @brief An abstract class for a Mask<T> generator
@@ -44,7 +44,7 @@ public:
      * @param mask the new mask is copied into \a mask
      * @return true if a mask was generated, false when there is no more mask or if there was an error
      */
-    virtual bool operator()(Maskgen::Mask<T> &mask) = 0;
+    virtual bool operator()(Maskuni::Mask<T> &mask) = 0;
     
     /**
      * @brief generation method, get only the next mask's size and width
@@ -56,7 +56,7 @@ public:
      * @return true if a mask was generated, false when there is no more mask or if there was an error
      */
     virtual bool operator()(uint64_t &size, size_t &width) {
-        Maskgen::Mask<T> tmpmask;
+        Maskuni::Mask<T> tmpmask;
         if ((*this)(tmpmask)) {
             size = tmpmask.getLen();
             width = tmpmask.getWidth();
@@ -89,7 +89,7 @@ public:
 //     
 //     class iterator {
 //     public:
-//         typedef Maskgen::Mask<T> value_type;
+//         typedef Maskuni::Mask<T> value_type;
 //         
 //         iterator(MaskGenerator<T> &gen) : m_gen(gen), m_current_value(), m_done(false) {
 //             m_done = !m_gen(m_current_value);

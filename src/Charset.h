@@ -22,7 +22,7 @@
 #include <algorithm>
 #include <memory>
 
-namespace Maskgen {
+namespace Maskuni {
 
 /**
  * @brief Hold a charset and iterate over its content

@@ -19,7 +19,7 @@
 #include "ReadCharsets.h"
 #include "MaskGenerator.h"
 
-namespace Maskgen {
+namespace Maskuni {
     
 /**
  * @brief Read an 8-bits mask list from a file or from the mask given by \a spec and return a MaskGenerator for the masks

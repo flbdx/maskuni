@@ -20,7 +20,7 @@
 
 #include <list>
 
-namespace Maskgen {
+namespace Maskuni {
 
 template<typename T, T escapeChar = T('?')>
 bool expandCharset(const CharsetMap<T> &charsets, DefaultCharset<T> &charset, T charset_name)

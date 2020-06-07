@@ -316,6 +316,7 @@ template<> bool MaskFileGenerator<uint32_t>::operator()(Maskuni::Mask<uint32_t> 
         mask.clear();
         if (m_command_line_mask) {
             readMask<uint32_t>({conv_buf, conv_buf + conv_written}, m_charsets, mask);
+            free(conv_buf);
             if (mask.getWidth() == 0) {
                 m_error = true;
                 return false;

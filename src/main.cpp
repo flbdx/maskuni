@@ -37,12 +37,6 @@
 
 using namespace Maskuni;
 
-// the maximum number of words in the output buffer
-// the buffer size will be OUTPUT_BUFFER_WORDS * (max_word_width + 1)
-constexpr size_t OUTPUT_BUFFER_WORDS = 1024;
-// a hard limit on the word width
-constexpr size_t MAX_WORD_WIDTH = 1024;
-
 static void short_usage()
 {
     const char *help_string =
@@ -497,10 +491,12 @@ int work(const struct Options &options, const char *mask_arg) {
     }
     
     typename Helper::Printer printer;
-    
+    std::vector<T> buffer(8192);
+    T * buffer_p = buffer.data();
+    const T * buffer_end = buffer.data() + buffer.size();
     std::vector<T> word(ml_max_width + 1);
-    if (word.size() > MAX_WORD_WIDTH) {
-        fprintf(stderr, "Error: do you reallly intend to generate words of length over %zu ?\n", MAX_WORD_WIDTH);
+    if (word.size() > buffer.size()) {
+        fprintf(stderr, "Error: do you reallly intend to generate words of length over %zu ?\n", buffer.size());
         return 1;
     }
     
@@ -519,12 +515,10 @@ int work(const struct Options &options, const char *mask_arg) {
     }
     
     
-    std::vector<T> buffer; // output buffer
     T delim = options.m_zero_delim ? '\0' : '\n';
     int delim_width = options.m_no_delim ? 0 : 1;
     uint64_t todo = end_idx - start_idx;
     Mask<T> current_mask;
-    buffer.reserve((ml_max_width + delim_width) * OUTPUT_BUFFER_WORDS);
     
     // skip to the start position
     gen->reset();
@@ -544,32 +538,15 @@ int work(const struct Options &options, const char *mask_arg) {
     }
     while (todo) {
         current_mask.setPosition(start_idx);
-        const uint64_t mask_rem = current_mask.getLen() - start_idx;
-        const uint64_t chunk = std::min(todo, mask_rem);
-        const size_t w = current_mask.getWidth();
-        const size_t wd = w + delim_width;
-        word[w] = delim;
-        
-        // buffer will store OUTPUT_BUFFER_WORDS full words
-        buffer.resize(wd * OUTPUT_BUFFER_WORDS); //just set the end pointer, it's already malloced
-        T * buffer_p = buffer.data();
-        const T * buffer_end = buffer.data() + buffer.size();
-        
+        uint64_t mask_rem = current_mask.getLen() - start_idx;
+        uint64_t chunk = std::min(todo, mask_rem);
+        size_t w = current_mask.getWidth();
         // the first word needs to use Mask<T>::getCurrent to fully initialize the word
         if (chunk >= 1) {
             current_mask.getCurrent(word.data());
-#if defined(__WINDOWS__) || defined(__CYGWIN__)
-            my_memcpy(buffer_p, word.data(), sizeof(T) * wd);
-#else
-            memcpy(buffer_p, word.data(), sizeof(T) * wd);
-#endif
-            buffer_p += wd;
-        }
-        // following words use Mask<T>::getNext to update the word
-        for (uint64_t i = 1; i < chunk; i++) {
-            current_mask.getNext(word.data());
-            if (buffer_p == buffer_end) {
-                printer.print(buffer.data(), buffer.size(), fdout);
+            word[w] = delim;
+            if (w + delim_width > size_t(buffer_end - buffer_p)) {
+                printer.print(buffer.data(), buffer_p - buffer.data(), fdout);
                 buffer_p = buffer.data();
             }
 #if defined(__WINDOWS__) || defined(__CYGWIN__)
@@ -577,17 +554,32 @@ int work(const struct Options &options, const char *mask_arg) {
 #else
             memcpy(buffer_p, word.data(), sizeof(T) * (w + delim_width));
 #endif
-            buffer_p += wd;
+            buffer_p += w + delim_width;
         }
-        
-        printer.print(buffer.data(), buffer_p - buffer.data(), fdout);
-        
+        // following words use Mask<T>::getNext to update the word
+        for (uint64_t i = 1; i < chunk; i++) {
+            current_mask.getNext(word.data());
+            word[w] = delim;
+            if (w + delim_width > size_t(buffer_end - buffer_p)) {
+                printer.print(buffer.data(), buffer_p - buffer.data(), fdout);
+                buffer_p = buffer.data();
+            }
+#if defined(__WINDOWS__) || defined(__CYGWIN__)
+            my_memcpy(buffer_p, word.data(), sizeof(T) * (w + delim_width));
+#else
+            memcpy(buffer_p, word.data(), sizeof(T) * (w + delim_width));
+#endif
+            buffer_p += w + delim_width;
+        }
+
         todo -= chunk;
         if (todo) {
             (*gen)(current_mask);
             start_idx = 0;
         }
     }
+
+    printer.print(buffer.data(), buffer_p - buffer.data(), fdout);
     if (fdout != STDOUT_FILENO) {
         close(fdout);
     }

@@ -33,12 +33,15 @@ if (NOT HAVE_GETLINE)
     list(APPEND MASKUNI_SOURCES lib/getdelim.c lib/getline.c)
 endif()
 
+# we may have to redefine __argv to avoid a crash in mingw64-w64/getopt
+check_symbol_exists(__argv "stdlib.h" HAVE___ARGV)
+
 configure_file(src/config.h.in src/config.h)
 
 add_executable(maskuni ${MASKUNI_SOURCES})
 target_compile_definitions(maskuni PRIVATE _GNU_SOURCE _FILE_OFFSET_BITS=64)
 target_include_directories(maskuni PRIVATE lib/ src/ ${PROJECT_BINARY_DIR}/src/)
-set_target_properties(maskuni PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
+target_compile_features(maskuni PUBLIC cxx_std_11)
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   # additional warnings
   target_compile_options(maskuni PRIVATE -Wall -Wextra)

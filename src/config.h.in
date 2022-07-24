@@ -4,5 +4,6 @@
 #cmakedefine MASKUNI_VERSION_STRING  "@MASKUNI_VERSION_STRING@"
 
 #cmakedefine HAVE_GETLINE
+#cmakedefine HAVE___ARGV
 
 #endif /* SRC_CONFIG_H */

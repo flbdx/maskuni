@@ -749,6 +749,7 @@ int main(int argc, char **argv) {
  * - set the console output codepage to UTF-8
  * - set stdout as binary to disable the destroying of \n into \r\n
  * - convert the UTF-16 arguments into UTF-8
+ * - ensure that __argv is defined
  * - call the standard main
  */
 int wmain(int argc, wchar_t **argv) {
@@ -764,6 +765,12 @@ int wmain(int argc, wchar_t **argv) {
         argv_utf8[i] = NULL;
     }
     argv_utf8[argc] = NULL;
+
+#ifdef HAVE___ARGV
+    // __argv is not defined by the runtime when built with unicode support
+    // but getopt (at least) will access this array to get the program's name. This results in a SEGV
+    __argv = argv_utf8;
+#endif
 
     int r = 0;
 
@@ -790,6 +797,10 @@ clean_exit:
         free(argv_utf8[i]);
     }
     free(argv_utf8);
+
+#ifdef HAVE___ARGV
+    __argv = NULL;
+#endif
 
     return r;
 }

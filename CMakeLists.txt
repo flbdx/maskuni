@@ -41,7 +41,7 @@ configure_file(src/config.h.in src/config.h)
 add_executable(maskuni ${MASKUNI_SOURCES})
 target_compile_definitions(maskuni PRIVATE _GNU_SOURCE _FILE_OFFSET_BITS=64)
 target_include_directories(maskuni PRIVATE lib/ src/ ${PROJECT_BINARY_DIR}/src/)
-target_compile_features(maskuni PUBLIC cxx_std_11)
+set_target_properties(maskuni PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   # additional warnings
   target_compile_options(maskuni PRIVATE -Wall -Wextra)
